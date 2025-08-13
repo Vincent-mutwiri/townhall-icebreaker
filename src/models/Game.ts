@@ -1,5 +1,6 @@
 // src/models/Game.ts
 import { Schema, model, models, Document } from 'mongoose';
+import './Player'; // Ensure Player model is registered
 
 export interface IGame extends Document {
   pin: string;
@@ -29,6 +30,12 @@ const GameSchema = new Schema({
   players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   eliminatedPlayers: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   currentQuestionIndex: { type: Number, default: 0 },
-}, { timestamps: true }); // Adds createdAt and updatedAt timestamps
+}, { 
+  timestamps: true, // Adds createdAt and updatedAt timestamps
+  // Ensure the model uses the existing collection but with our new schema
+  collection: 'games',
+  // Skip validation of existing documents
+  strict: false
+});
 
 export const Game = models.Game || model<IGame>('Game', GameSchema);
