@@ -1,6 +1,6 @@
 // src/models/Game.ts
 import pkg from 'mongoose';
-const { Schema, model, models, Document } = pkg;
+const { Schema, model, models } = pkg;
 import './Player.ts'; // Ensure Player model is registered
 import './Question.ts'; // Ensure Question model is registered
 
@@ -12,9 +12,9 @@ export interface IGame extends Document {
   initialPrize: number;
   incrementAmount: number;
   prizePool: number;
-  questions: Schema.Types.ObjectId[];
-  players: Schema.Types.ObjectId[];
-  eliminatedPlayers: Schema.Types.ObjectId[];
+  questions: pkg.Schema.Types.ObjectId[];
+  players: pkg.Schema.Types.ObjectId[];
+  eliminatedPlayers: pkg.Schema.Types.ObjectId[];
   currentQuestionIndex: number;
 }
 
@@ -31,10 +31,10 @@ const GameSchema = new Schema({
   incrementAmount: { type: Number, required: true },
   prizePool: { type: Number, required: true },
   // An array of references to Question documents
-  questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
+  questions: [{ type: pkg.Schema.Types.ObjectId, ref: 'Question' }],
   // An array of references to Player documents
-  players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  eliminatedPlayers: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  players: [{ type: pkg.Schema.Types.ObjectId, ref: 'Player' }],
+  eliminatedPlayers: [{ type: pkg.Schema.Types.ObjectId, ref: 'Player' }],
   currentQuestionIndex: { type: Number, default: 0 },
 }, { 
   timestamps: true, // Adds createdAt and updatedAt timestamps

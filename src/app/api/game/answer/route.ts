@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     await Player.updateOne(
       { _id: playerId, game: game._id },
-      { $set: { lastAnswer: { questionId: currentQuestion._id, isCorrect } } }
+      { $set: { lastAnswer: { questionId: currentQuestion._id, isCorrect, submittedAt: new Date() } } }
     );
 
     return NextResponse.json({ message: 'Answer submitted.', yourAnswer: answer, isCorrect });

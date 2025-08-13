@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { QuestionView } from "./QuestionView";
 import { ResultsScreen } from "./ResultsScreen";
 import { VotingRound } from "./VotingRound";
+import { WinnerScreen } from "./WinnerScreen";
+import { HostView } from "./HostView";
 import { toast, Toaster } from "sonner";
 
 type Player = { _id: string; name: string; isEliminated: boolean; };
@@ -28,21 +30,40 @@ type LobbyProps = {
   initialGame: GameState;
 };
 
+type Winner = { _id: string; name: string; score: number; }; // Define Winner type here
+
 export function Lobby({ initialGame }: LobbyProps) {
   const { socket, isConnected } = useSocket();
   const [gameState, setGameState] = useState<GameState>(initialGame);
   const [players, setPlayers] = useState<Player[]>(initialGame.players);
   const [isLoading, setIsLoading] = useState(false);
   const [roundResults, setRoundResults] = useState<{ survivors: string[], eliminated: string[] } | null>(null);
-  const [view, setView] = useState<'lobby' | 'question' | 'results' | 'voting'>(initialGame.status === 'lobby' ? 'lobby' : 'question');
+  const [view, setView] = useState<'lobby' | 'question' | 'results' | 'voting' | 'finished'>(
+    initialGame.status === 'lobby' ? 'lobby' : 
+    initialGame.status === 'in-progress' ? 'question' : 
+    initialGame.status === 'finished' ? 'finished' : 'lobby'
+  );
   const [eliminatedPlayersForVote, setEliminatedPlayersForVote] = useState<Player[]>([]);
+  const [winners, setWinners] = useState<Winner[]>([]);
+  const [redeemedPlayers, setRedeemedPlayers] = useState<string[]>([]);
 
-  const playerId = typeof window !== 'undefined' ? localStorage.getItem(`player-id-${gameState.pin}`) : null;
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [isHost, setIsHost] = useState(false);
+  
+  useEffect(() => {
+    const storedPlayerId = localStorage.getItem(`player-id-${gameState.pin}`);
+    setPlayerId(storedPlayerId);
+    
+    // Check if URL has host parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const hostCheck = urlParams.get('host') === 'true';
+    setIsHost(hostCheck);
+  }, [gameState.pin]);
+  
   const currentPlayer = gameState.players.find(p => p._id === playerId);
   const isEliminated = !!currentPlayer?.isEliminated;
   const isEliminatedThisRound = roundResults ? 
     !roundResults.survivors.includes(currentPlayer?.name || '') : false;
-  const isHost = socket?.id === gameState.host || gameState.host?.startsWith('temp-host-');
 
   useEffect(() => {
     if (!socket) return;
@@ -72,6 +93,7 @@ export function Lobby({ initialGame }: LobbyProps) {
     const handlePlayerRedeemed = (data: { name: string | null }) => {
       if (data.name) {
         toast.success(`${data.name} has been redeemed!`);
+        setRedeemedPlayers(prev => [...prev, data.name!]);
       } else {
         toast.info("No one was redeemed this round.");
       }
@@ -83,12 +105,19 @@ export function Lobby({ initialGame }: LobbyProps) {
       setView('question');
     };
 
+    const handleGameOver = (data: { winners: Winner[] }) => {
+      console.log("Game over! Winners:", data.winners);
+      setWinners(data.winners);
+      setView('finished');
+    };
+
     socket.on('update-lobby', handleUpdateLobby);
     socket.on('game-started', handleGameStarted);
     socket.on('round-results', handleRoundResults);
     socket.on('voting-started', handleVotingStarted);
     socket.on('player-redeemed', handlePlayerRedeemed);
     socket.on('next-round-started', handleNextRound);
+    socket.on('game-over', handleGameOver); // Listen for game-over event
 
     return () => {
       socket.off('update-lobby', handleUpdateLobby);
@@ -97,8 +126,9 @@ export function Lobby({ initialGame }: LobbyProps) {
       socket.off('voting-started', handleVotingStarted);
       socket.off('player-redeemed', handlePlayerRedeemed);
       socket.off('next-round-started', handleNextRound);
+      socket.off('game-over', handleGameOver); // Clean up game-over listener
     };
-  }, [socket, gameState.pin, gameState.status]); // Added gameState.status to dependencies
+  }, [socket, gameState.pin, gameState.status]);
 
   const handleStartGame = async () => {
     if (!isHost) return;
@@ -113,10 +143,13 @@ export function Lobby({ initialGame }: LobbyProps) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
 
-      // Game state will be updated via socket listener (handleGameStarted)
+      // Update game state directly since no socket
+      setGameState(data.game);
+      setView('question');
 
     } catch (error) {
       console.error("Failed to start game:", error);
+      toast.error(`Failed to start game: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -166,6 +199,11 @@ export function Lobby({ initialGame }: LobbyProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: gameState.pin, eliminatedPlayers: eliminatedPlayersForVote }),
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process vote');
+      }
+      
       const data = await response.json();
       
       if (data.redeemedPlayer) {
@@ -182,9 +220,21 @@ export function Lobby({ initialGame }: LobbyProps) {
         }, 3000);
       } else if (data.gameEnded) {
         toast.success("Game Over!");
+        if (data.winners) {
+          setTimeout(() => {
+            setWinners(data.winners);
+            setView('finished');
+          }, 2000);
+        }
       }
     } catch (error) {
       console.error('Failed to process vote:', error);
+      // Fallback: just show a message and continue
+      toast.info("Voting ended. Continuing to next round...");
+      setTimeout(() => {
+        setRoundResults(null);
+        setView('question');
+      }, 2000);
     }
   };
 
@@ -192,11 +242,22 @@ export function Lobby({ initialGame }: LobbyProps) {
     switch (view) {
       case 'question':
         const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
+        if (isHost) {
+          return <HostView 
+            question={currentQuestion} 
+            players={gameState.players} 
+            onTimeUp={handleTimeUp} 
+            roundResults={roundResults}
+            redeemedPlayers={redeemedPlayers}
+          />;
+        }
         return <QuestionView question={currentQuestion} pin={gameState.pin} onTimeUp={handleTimeUp} isEliminated={isEliminated} />;
       case 'results':
         return <ResultsScreen survivors={roundResults?.survivors || []} eliminated={roundResults?.eliminated || []} />;
       case 'voting':
         return <VotingRound eliminatedPlayers={eliminatedPlayersForVote} onVote={handleVote} onTimeUp={handleVoteTimeUp} isEliminated={isEliminatedThisRound} />;
+      case 'finished': // New case for finished game
+        return <WinnerScreen winners={winners} />;
       case 'lobby':
       default:
         return (
@@ -232,7 +293,7 @@ export function Lobby({ initialGame }: LobbyProps) {
                 ))}
               </div>
 
-              {isHost && (
+              {isHost && gameState.status === 'lobby' && (
                 <div className="mt-8 text-center">
                   <Button size="lg" onClick={handleStartGame} disabled={isLoading || players.length < 1}>
                     {isLoading ? 'Starting...' : `Start Game (${players.length} Players)`}

@@ -34,9 +34,22 @@ export async function POST(request: Request) {
         game: JSON.parse(JSON.stringify(updatedGame))
       });
     } else {
+      // Game is over - calculate winners
       game.status = 'finished';
       await game.save();
-      return NextResponse.json({ redeemedPlayer, gameEnded: true });
+      
+      const allPlayers = await Player.find({ game: game._id }).sort({ score: -1 });
+      const winners = allPlayers.map(p => ({
+        _id: p._id,
+        name: p.name,
+        score: p.score || 0
+      }));
+      
+      return NextResponse.json({ 
+        redeemedPlayer, 
+        gameEnded: true,
+        winners
+      });
     }
 
   } catch (error) {

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
-import { Game } from '@/models/Game';
-import { Player } from '@/models/Player';
 
 export async function POST(request: Request) {
   try {

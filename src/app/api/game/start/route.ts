@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { pin, hostSocketId } = body;
 
-    if (!pin || !hostSocketId) {
-      return NextResponse.json({ message: 'Game PIN and Host ID are required.' }, { status: 400 });
+    if (!pin) {
+      return NextResponse.json({ message: 'Game PIN is required.' }, { status: 400 });
     }
 
     const game = await Game.findOne({ pin });
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Game not found.' }, { status: 404 });
     }
 
-    if (game.host !== hostSocketId) {
+    if (hostSocketId && game.host !== hostSocketId) {
       return NextResponse.json({ message: 'Only the host can start the game.' }, { status: 403 });
     }
 
