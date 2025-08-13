@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSocket } from "@/context/SocketProvider";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 
 export function JoinGameForm() {
   const router = useRouter();
+  const { socket } = useSocket();
   const [pin, setPin] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +40,11 @@ export function JoinGameForm() {
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to join game.');
+      }
+
+      // Notify server about the new player
+      if (socket) {
+        socket.emit('player-joined', data.pin);
       }
 
       router.push(`/game/${data.pin}`);
