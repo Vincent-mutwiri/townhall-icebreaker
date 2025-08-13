@@ -42,6 +42,11 @@ export function JoinGameForm() {
         throw new Error(data.message || 'Failed to join game.');
       }
 
+      // Save player ID to localStorage
+      if (data.playerId) {
+        localStorage.setItem(`player-id-${data.pin}`, data.playerId);
+      }
+
       // Notify server about the new player
       if (socket) {
         socket.emit('player-joined', data.pin);

@@ -1,7 +1,8 @@
 // src/models/Game.ts
-import { Schema, model, models, Document } from 'mongoose';
-import './Player'; // Ensure Player model is registered
-import './Question'; // Ensure Question model is registered
+import pkg from 'mongoose';
+const { Schema, model, models, Document } = pkg;
+import './Player.ts'; // Ensure Player model is registered
+import './Question.ts'; // Ensure Question model is registered
 
 export interface IGame extends Document {
   pin: string;

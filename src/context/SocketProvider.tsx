@@ -23,9 +23,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Socket.IO disabled for testing
-    console.log('Socket.IO disabled');
-    setIsConnected(false);
+    const socketInstance = new (ClientIO as any)(); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+    socketInstance.on('connect', () => {
+      console.log('Socket connected!');
+      setIsConnected(true);
+    });
+
+    socketInstance.on('disconnect', () => {
+      console.log('Socket disconnected!');
+      setIsConnected(false);
+    });
+
+    setSocket(socketInstance);
+
+    return () => {
+      socketInstance.disconnect();
+    };
   }, []);
 
   return (

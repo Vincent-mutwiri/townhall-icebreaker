@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       message: 'Successfully joined the game!',
       pin: game.pin,
+      playerId: newPlayer._id,
     }, { status: 200 });
 
   } catch (error) {

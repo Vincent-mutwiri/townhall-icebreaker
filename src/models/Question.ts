@@ -1,5 +1,6 @@
 // src/models/Question.ts
-import { Schema, model, models } from 'mongoose';
+import pkg from 'mongoose';
+const { Schema, model, models } = pkg;
 
 export interface IQuestion extends Document {
   text: string;

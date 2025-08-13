@@ -1,26 +1,69 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Timer } from "./Timer";
+import { cn } from "@/lib/utils";
 
-type Question = {
-  _id: string;
-  text: string;
-  options: string[];
-};
-
+type Question = { _id: string; text: string; options: string[]; };
 type QuestionViewProps = {
   question: Question;
-  onAnswer: (answer: string) => void;
+  pin: string;
+  onTimeUp: () => void;
+  isEliminated?: boolean;
 };
 
-export function QuestionView({ question, onAnswer }: QuestionViewProps) {
+export function QuestionView({ question, pin, onTimeUp, isEliminated = false }: QuestionViewProps) {
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAnswer = async (answer: string) => {
+    if (hasAnswered || isSubmitting || isEliminated) return;
+
+    setIsSubmitting(true);
+    setSelectedAnswer(answer);
+
+    const playerId = localStorage.getItem(`player-id-${pin}`);
+    if (!playerId) {
+      console.error("Player ID not found!");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await fetch('/api/game/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, playerId, answer }),
+      });
+      setHasAnswered(true);
+    } catch (error) {
+      console.error("Failed to submit answer:", error);
+      setSelectedAnswer(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-2xl animate-in fade-in">
       <CardHeader>
+        <Timer duration={15} onTimeUp={onTimeUp} />
         <CardTitle className="text-center text-2xl md:text-3xl">
           {question.text}
         </CardTitle>
+        {isEliminated && (
+          <CardDescription className="text-center text-red-600 font-bold">
+            You are eliminated - watching only
+          </CardDescription>
+        )}
+        {hasAnswered && !isEliminated && (
+          <CardDescription className="text-center text-primary font-bold">
+            Your answer is locked in!
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -28,8 +71,13 @@ export function QuestionView({ question, onAnswer }: QuestionViewProps) {
             <Button
               key={index}
               variant="outline"
-              className="h-auto py-4 text-lg"
-              onClick={() => onAnswer(option)}
+              className={cn(
+                "h-auto py-4 text-lg",
+                selectedAnswer === option && "ring-4 ring-primary ring-offset-2",
+                hasAnswered && selectedAnswer !== option && "opacity-50"
+              )}
+              onClick={() => handleAnswer(option)}
+              disabled={hasAnswered || isSubmitting || isEliminated}
             >
               {option}
             </Button>
