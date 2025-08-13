@@ -23,26 +23,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = ClientIO({
-      path: '/api/socket',
-      addTrailingSlash: false,
-    });
-
-    socketInstance.on('connect', () => {
-      console.log('Socket connected!');
-      setIsConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('Socket disconnected!');
-      setIsConnected(false);
-    });
-
-    setSocket(socketInstance);
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    // Socket.IO disabled for now
+    console.log('Socket.IO disabled');
   }, []);
 
   return (
