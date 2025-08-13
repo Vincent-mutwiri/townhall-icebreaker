@@ -48,8 +48,8 @@ export function CreateGameForm() {
       // On success, redirect the host to their new game lobby
       router.push(`/game/${data.pin}`);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }

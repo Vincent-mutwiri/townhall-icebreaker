@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useSocket } from "@/context/SocketProvider";
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 // Define a type for our player object
