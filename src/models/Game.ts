@@ -1,9 +1,12 @@
 // src/models/Game.ts
 import { Schema, model, models, Document } from 'mongoose';
 import './Player'; // Ensure Player model is registered
+import './Question'; // Ensure Question model is registered
 
 export interface IGame extends Document {
   pin: string;
+  host: string;
+  hostName: string;
   status: 'lobby' | 'in-progress' | 'voting' | 'finished';
   initialPrize: number;
   incrementAmount: number;
@@ -16,6 +19,8 @@ export interface IGame extends Document {
 
 const GameSchema = new Schema({
   pin: { type: String, required: true, unique: true, index: true },
+  host: { type: String, required: false },
+  hostName: { type: String, required: false },
   status: {
     type: String,
     enum: ['lobby', 'in-progress', 'voting', 'finished'],

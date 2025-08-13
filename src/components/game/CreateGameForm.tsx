@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSocket } from "@/context/SocketProvider";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +18,8 @@ import { Label } from "@/components/ui/label";
 
 export function CreateGameForm() {
   const router = useRouter();
+  const { socket, isConnected } = useSocket();
+  const [hostName, setHostName] = useState("");
   const [initialPrize, setInitialPrize] = useState("100");
   const [incrementAmount, setIncrementAmount] = useState("20");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,8 +37,10 @@ export function CreateGameForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          hostName,
           initialPrize: Number(initialPrize),
           incrementAmount: Number(incrementAmount),
+          hostSocketId: socket?.id,
         }),
       });
 
@@ -66,6 +71,16 @@ export function CreateGameForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="host-name">Your Name</Label>
+            <Input
+              id="host-name"
+              placeholder="e.g., John Doe"
+              value={hostName}
+              onChange={(e) => setHostName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="initial-prize">Initial Cash Prize ($)</Label>
             <Input
               id="initial-prize"
@@ -91,7 +106,14 @@ export function CreateGameForm() {
           </div>
           {error && <p className="text-sm font-medium text-destructive">{error}</p>}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-2">
+          <div className="w-full text-center text-xs text-muted-foreground">
+            Socket Status: {isConnected ? (
+              <span className="font-semibold text-green-500">Connected</span>
+            ) : (
+              <span className="font-semibold text-red-500">Connecting...</span>
+            )}
+          </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Creating...' : 'Create Game'}
           </Button>

@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Socket } from 'socket.io-client';
+import { io as ClientIO, Socket } from 'socket.io-client';
 
 type SocketContextType = {
   socket: Socket | null;
@@ -19,12 +19,13 @@ export const useSocket = () => {
 };
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const [socket] = useState<Socket | null>(null);
-  const [isConnected] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Socket.IO disabled for now
+    // Socket.IO disabled for testing
     console.log('Socket.IO disabled');
+    setIsConnected(false);
   }, []);
 
   return (

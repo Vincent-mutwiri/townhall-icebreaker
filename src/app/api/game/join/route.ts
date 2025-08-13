@@ -26,7 +26,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Game not found. Please check the PIN.' }, { status: 404 });
     }
 
-    // 3. Check game status
+    // 3. Check for a host
+    if (!game.host) {
+      return NextResponse.json({ message: 'This game is invalid and cannot be joined because it has no host.' }, { status: 400 });
+    }
+
+    // 4. Check game status
     if (game.status !== 'lobby') {
       return NextResponse.json({ message: 'This game has already started.' }, { status: 403 });
     }

@@ -25,22 +25,27 @@ export async function POST(request: Request) {
 
     // 2. Parse the request body
     const body = await request.json();
-    const { initialPrize, incrementAmount } = body;
+    const { hostName, initialPrize, incrementAmount, hostSocketId } = body;
 
     // 3. Validate the input
-    if (!initialPrize || !incrementAmount || initialPrize <= 0 || incrementAmount <= 0) {
+    if (!hostName || !initialPrize || !incrementAmount || initialPrize <= 0 || incrementAmount <= 0) {
       return NextResponse.json(
-        { message: 'Invalid input. Prize and increment must be positive numbers.' },
+        { message: 'Invalid input. Name is required and prize/increment must be positive numbers.' },
         { status: 400 }
       );
     }
 
-    // 4. Generate a unique game pin
+    // 4. Use fallback host ID if socket ID is not available
+    const finalHostId = hostSocketId || 'temp-host-' + Date.now();
+
+    // 5. Generate a unique game pin
     const gamePin = generateUniquePin();
 
-    // 5. Create a new game document
+    // 6. Create a new game document
     const newGame = new Game({
       pin: gamePin,
+      host: finalHostId,
+      hostName: hostName,
       initialPrize: initialPrize,
       incrementAmount: incrementAmount,
       prizePool: initialPrize, // The prize pool starts at the initial amount
@@ -49,10 +54,10 @@ export async function POST(request: Request) {
       questions: [], // No questions added yet
     });
 
-    // 6. Save the game to the database
+    // 7. Save the game to the database
     await newGame.save();
 
-    // 7. Return a success response with the game pin
+    // 8. Return a success response with the game pin
     return NextResponse.json({
       message: 'Game created successfully!',
       pin: newGame.pin,

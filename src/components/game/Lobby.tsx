@@ -6,45 +6,87 @@ import { useSocket } from "@/context/SocketProvider";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { QuestionView } from "./QuestionView";
 
-// Define a type for our player object
-type Player = {
-  _id: string;
-  name: string;
+type Player = { _id: string; name: string; };
+type Question = { _id: string; text: string; options: string[]; correctAnswer: string; };
+type GameState = {
+  pin: string;
+  prizePool: number;
+  players: Player[];
+  host: string;
+  hostName: string;
+  status: 'lobby' | 'in-progress' | 'finished';
+  questions: Question[];
+  currentQuestionIndex: number;
 };
 
-// Define a type for the props our component will receive
 type LobbyProps = {
-  initialGame: {
-    pin: string;
-    prizePool: number;
-    players: Player[];
-  };
+  initialGame: GameState;
 };
 
 export function Lobby({ initialGame }: LobbyProps) {
   const { socket, isConnected } = useSocket();
+  const [gameState, setGameState] = useState<GameState>(initialGame);
   const [players, setPlayers] = useState<Player[]>(initialGame.players);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const isHost = true; // Everyone is host for testing without socket
 
   useEffect(() => {
     if (!socket) return;
 
-    // Join the room for this specific game
-    socket.emit('join-room', initialGame.pin);
+    socket.emit('join-room', gameState.pin);
 
-    // Listen for updates to the player list
     const handleUpdateLobby = (updatedPlayers: Player[]) => {
-      console.log('Lobby updated!', updatedPlayers);
       setPlayers(updatedPlayers);
     };
 
-    socket.on('update-lobby', handleUpdateLobby);
+    const handleGameStarted = (newGameState: GameState) => {
+      console.log('Game has started!', newGameState);
+      setGameState(newGameState);
+    };
 
-    // Clean up the listener when the component unmounts
+    socket.on('update-lobby', handleUpdateLobby);
+    socket.on('game-started', handleGameStarted);
+
     return () => {
       socket.off('update-lobby', handleUpdateLobby);
+      socket.off('game-started', handleGameStarted);
     };
-  }, [socket, initialGame.pin]);
+  }, [socket, gameState.pin]);
+
+  const handleStartGame = async () => {
+    if (!isHost) return;
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/game/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: gameState.pin, hostSocketId: gameState.host }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+
+      // Update game state directly since no socket
+      setGameState(data.game);
+
+    } catch (error) {
+      console.error("Failed to start game:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAnswer = (answer: string) => {
+    console.log("Answered:", answer);
+  };
+
+  if (gameState.status === 'in-progress') {
+    const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
+    return <QuestionView question={currentQuestion} onAnswer={handleAnswer} />;
+  }
 
   return (
     <Card className="w-full max-w-2xl">
@@ -52,11 +94,14 @@ export function Lobby({ initialGame }: LobbyProps) {
         <div className="flex justify-center items-center gap-4 mb-4">
           <h2 className="text-2xl font-bold">Game Lobby</h2>
           <Badge variant="secondary" className="text-xl py-1">
-            {initialGame.pin}
+            {gameState.pin}
           </Badge>
         </div>
         <p className="text-muted-foreground">
-          Current Prize Pool: <span className="font-bold text-primary">${initialGame.prizePool}</span>
+          Current Prize Pool: <span className="font-bold text-primary">${gameState.prizePool}</span>
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Host: {gameState.hostName}
         </p>
         <p className="text-xs text-muted-foreground">
           Socket Status: {isConnected ? 'Connected' : 'Disconnected'}
@@ -76,9 +121,19 @@ export function Lobby({ initialGame }: LobbyProps) {
           ))}
         </div>
 
-        <div className="mt-8 text-center">
-          <Button size="lg">Start Game</Button>
-        </div>
+        {isHost && (
+          <div className="mt-8 text-center">
+            <Button size="lg" onClick={handleStartGame} disabled={isLoading || players.length < 1}>
+              {isLoading ? 'Starting...' : `Start Game (${players.length} Players)`}
+            </Button>
+            {players.length < 1 && <p className="text-xs text-muted-foreground mt-2">Need at least 1 player to start.</p>}
+          </div>
+        )}
+        {!isHost && (
+           <div className="mt-8 text-center">
+             <p className="text-lg text-muted-foreground">Waiting for the host to start the game...</p>
+           </div>
+        )}
       </CardContent>
     </Card>
   );
