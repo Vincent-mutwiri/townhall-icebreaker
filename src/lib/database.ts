@@ -14,11 +14,9 @@ if (!MONGODB_URI) {
  * in development. This prevents connections from growing exponentially
  * during API Route usage.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare global {
-  var mongoose: {
-    conn: any;
-    promise: Promise<any> | null;
-  } | undefined;
+  var mongoose: any;
 }
 
 let cached = global.mongoose;
