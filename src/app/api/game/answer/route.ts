@@ -23,10 +23,27 @@ export async function POST(request: Request) {
     }
 
     const isCorrect = currentQuestion.correctAnswer === answer;
+    
+    // Debug logging
+    console.log('Answer comparison:', {
+      playerAnswer: answer,
+      correctAnswer: currentQuestion.correctAnswer,
+      isCorrect,
+      questionText: currentQuestion.text
+    });
+
+    const updateQuery: any = {
+      $set: { lastAnswer: { questionId: currentQuestion._id, isCorrect, submittedAt: new Date() } }
+    };
+    
+    // Increment score if answer is correct
+    if (isCorrect) {
+      updateQuery.$inc = { score: 1 };
+    }
 
     await Player.updateOne(
       { _id: playerId, game: game._id },
-      { $set: { lastAnswer: { questionId: currentQuestion._id, isCorrect, submittedAt: new Date() } } }
+      updateQuery
     );
 
     return NextResponse.json({ message: 'Answer submitted.', yourAnswer: answer, isCorrect });

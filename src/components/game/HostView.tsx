@@ -12,9 +12,12 @@ type HostViewProps = {
   onTimeUp: () => void;
   roundResults?: { survivors: string[], eliminated: string[] } | null;
   redeemedPlayers?: string[];
+  currentRound?: number;
+  initialPrize?: number;
+  incrementAmount?: number;
 };
 
-export function HostView({ question, players, onTimeUp, roundResults, redeemedPlayers = [] }: HostViewProps) {
+export function HostView({ question, players, onTimeUp, roundResults, redeemedPlayers = [], currentRound = 1, initialPrize = 100, incrementAmount = 20 }: HostViewProps) {
   const activePlayers = players.filter(p => !p.isEliminated);
   const eliminatedPlayers = players.filter(p => p.isEliminated);
 
@@ -31,6 +34,12 @@ export function HostView({ question, players, onTimeUp, roundResults, redeemedPl
       {/* Current Question */}
       <Card>
         <CardHeader>
+          <div className="text-center mb-4">
+            <div className="text-2xl font-bold text-green-600">
+              ${initialPrize + (currentRound - 1) * incrementAmount}
+            </div>
+            <div className="text-sm text-muted-foreground">Round {currentRound} Prize</div>
+          </div>
           <Timer duration={15} onTimeUp={onTimeUp} />
           <CardTitle className="text-lg">Current Question</CardTitle>
         </CardHeader>

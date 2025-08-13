@@ -12,9 +12,12 @@ type QuestionViewProps = {
   pin: string;
   onTimeUp: () => void;
   isEliminated?: boolean;
+  currentRound?: number;
+  initialPrize?: number;
+  incrementAmount?: number;
 };
 
-export function QuestionView({ question, pin, onTimeUp, isEliminated = false }: QuestionViewProps) {
+export function QuestionView({ question, pin, onTimeUp, isEliminated = false, currentRound = 1, initialPrize = 100, incrementAmount = 20 }: QuestionViewProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,12 +36,21 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false }: 
     }
 
     try {
-      await fetch('/api/game/answer', {
+      console.log('Submitting answer:', { pin, playerId, answer });
+      const response = await fetch('/api/game/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin, playerId, answer }),
       });
-      setHasAnswered(true);
+      const result = await response.json();
+      console.log('Answer response:', result);
+      
+      if (response.ok) {
+        setHasAnswered(true);
+      } else {
+        console.error('Answer submission failed:', result);
+        setSelectedAnswer(null);
+      }
     } catch (error) {
       console.error("Failed to submit answer:", error);
       setSelectedAnswer(null);
@@ -50,6 +62,12 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false }: 
   return (
     <Card className="w-full max-w-2xl animate-in fade-in">
       <CardHeader>
+        <div className="text-center mb-4">
+          <div className="text-3xl font-bold text-green-600">
+            ${initialPrize + (currentRound - 1) * incrementAmount}
+          </div>
+          <div className="text-sm text-muted-foreground">Round {currentRound} Prize</div>
+        </div>
         <Timer duration={15} onTimeUp={onTimeUp} />
         <CardTitle className="text-center text-2xl md:text-3xl">
           {question.text}

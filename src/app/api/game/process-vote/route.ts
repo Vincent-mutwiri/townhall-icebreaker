@@ -19,6 +19,9 @@ export async function POST(request: Request) {
       const playerToRedeem = eliminatedPlayers[0];
       await Player.updateOne({ _id: playerToRedeem._id }, { $set: { isEliminated: false } });
       redeemedPlayer = playerToRedeem.name;
+      
+      // Update the game's player list to reflect the redemption
+      await game.populate('players');
     }
 
     // Move to next question or end game

@@ -18,12 +18,38 @@ export async function POST(request: Request) {
     const eliminated: string[] = [];
 
     for (const player of game.players) {
-      if (player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString() && player.lastAnswer.isCorrect) {
+      // Skip already eliminated players
+      if (player.isEliminated) {
+        continue;
+      }
+      
+      // Debug logging
+      console.log(`Player ${player.name}:`, {
+        lastAnswer: player.lastAnswer,
+        questionId: currentQuestion._id.toString(),
+        correctAnswer: currentQuestion.correctAnswer
+      });
+      
+      // Check if player answered this question correctly
+      const answeredCorrectly = player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString() && player.lastAnswer.isCorrect;
+      
+      console.log(`${player.name} answered correctly: ${answeredCorrectly}`);
+      
+      if (answeredCorrectly) {
         survivors.push(player.name);
       } else {
+        // Player either answered incorrectly or didn't answer at all
         eliminated.push(player.name);
         await Player.updateOne({ _id: player._id }, { $set: { isEliminated: true } });
       }
+      
+      // Clear lastAnswer after processing
+      await Player.updateOne({ _id: player._id }, { $unset: { lastAnswer: 1 } });
+    }
+
+    // If no active players were processed, return empty arrays but log it
+    if (survivors.length === 0 && eliminated.length === 0) {
+      console.log('Warning: No active players found to process');
     }
 
     return NextResponse.json({ survivors, eliminated });

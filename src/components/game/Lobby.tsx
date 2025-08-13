@@ -13,7 +13,7 @@ import { WinnerScreen } from "./WinnerScreen";
 import { HostView } from "./HostView";
 import { toast, Toaster } from "sonner";
 
-type Player = { _id: string; name: string; isEliminated: boolean; };
+type Player = { _id: string; name: string; isEliminated: boolean; score?: number; };
 type Question = { _id: string; text: string; options: string[]; correctAnswer: string; };
 type GameState = {
   pin: string;
@@ -24,6 +24,8 @@ type GameState = {
   status: 'lobby' | 'in-progress' | 'finished';
   questions: Question[];
   currentQuestionIndex: number;
+  initialPrize?: number;
+  incrementAmount?: number;
 };
 
 type LobbyProps = {
@@ -58,12 +60,36 @@ export function Lobby({ initialGame }: LobbyProps) {
     const urlParams = new URLSearchParams(window.location.search);
     const hostCheck = urlParams.get('host') === 'true';
     setIsHost(hostCheck);
+
+
   }, [gameState.pin]);
+
+  const handleResultsTimeUp = () => {
+    if (roundResults && roundResults.eliminated.length > 0) {
+      const eliminatedPlayers = gameState.players.filter(p => 
+        roundResults.eliminated.includes(p.name)
+      );
+      setEliminatedPlayersForVote(eliminatedPlayers);
+      setView('voting');
+    } else {
+      // Continue to next round or end game
+      const activePlayers = gameState.players.filter(p => !p.isEliminated);
+      if (activePlayers.length <= 1) {
+        const allPlayers = gameState.players.sort((a, b) => (b.score || 0) - (a.score || 0));
+        setWinners(allPlayers.map(p => ({ _id: p._id, name: p.name, score: p.score || 0 })));
+        setView('finished');
+      } else {
+        setRoundResults(null);
+        setView('question');
+      }
+    }
+  };
   
   const currentPlayer = gameState.players.find(p => p._id === playerId);
   const isEliminated = !!currentPlayer?.isEliminated;
   const isEliminatedThisRound = roundResults ? 
-    !roundResults.survivors.includes(currentPlayer?.name || '') : false;
+    roundResults.eliminated.includes(currentPlayer?.name || '') : false;
+  const canVote = !isEliminatedThisRound; // Only check if eliminated this round, not overall status
 
   useEffect(() => {
     if (!socket) return;
@@ -157,30 +183,57 @@ export function Lobby({ initialGame }: LobbyProps) {
 
   const handleTimeUp = async () => {
     console.log("Time is up!");
-    try {
-      const response = await fetch('/api/game/process-round', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: gameState.pin }),
-      });
-      const results = await response.json();
-      if (response.ok) {
+    
+    if (isHost) {
+      // Only host processes the round
+      try {
+        const response = await fetch('/api/game/process-round', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: gameState.pin }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const results = await response.json();
         setRoundResults(results);
         setView('results');
         
-        // Auto-progress to voting after 5 seconds
-        setTimeout(() => {
-          if (results.eliminated.length > 0) {
-            const eliminatedPlayers = gameState.players.filter(p => 
-              results.eliminated.includes(p.name)
-            );
-            setEliminatedPlayersForVote(eliminatedPlayers);
-            setView('voting');
-          }
-        }, 5000);
+        // Update gameState with fresh player data after elimination
+        const updatedGame = await fetch(`/api/game/${gameState.pin}`);
+        if (updatedGame.ok) {
+          const freshGameData = await updatedGame.json();
+          setGameState(prev => ({ ...prev, players: freshGameData.players }));
+        }
+        
+      } catch (error) {
+        console.error('Failed to process round:', error);
+        toast.error('Failed to process round results');
+        setRoundResults({ survivors: [], eliminated: [] });
+        setView('results');
       }
-    } catch (error) {
-      console.error('Failed to process round:', error);
+    } else {
+      // Players also process round to get results
+      try {
+        const response = await fetch('/api/game/process-round', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: gameState.pin }),
+        });
+        
+        if (response.ok) {
+          const results = await response.json();
+          setRoundResults(results);
+        } else {
+          setRoundResults({ survivors: [], eliminated: [] });
+        }
+      } catch (error) {
+        console.error('Failed to get round results:', error);
+        setRoundResults({ survivors: [], eliminated: [] });
+      }
+      setView('results');
     }
   };
 
@@ -249,13 +302,24 @@ export function Lobby({ initialGame }: LobbyProps) {
             onTimeUp={handleTimeUp} 
             roundResults={roundResults}
             redeemedPlayers={redeemedPlayers}
+            currentRound={gameState.currentQuestionIndex + 1}
+            initialPrize={gameState.initialPrize}
+            incrementAmount={gameState.incrementAmount}
           />;
         }
-        return <QuestionView question={currentQuestion} pin={gameState.pin} onTimeUp={handleTimeUp} isEliminated={isEliminated} />;
+        return <QuestionView 
+          question={currentQuestion} 
+          pin={gameState.pin} 
+          onTimeUp={handleTimeUp} 
+          isEliminated={isEliminated}
+          currentRound={gameState.currentQuestionIndex + 1}
+          initialPrize={gameState.initialPrize}
+          incrementAmount={gameState.incrementAmount}
+        />;
       case 'results':
-        return <ResultsScreen survivors={roundResults?.survivors || []} eliminated={roundResults?.eliminated || []} />;
+        return <ResultsScreen survivors={roundResults?.survivors || []} eliminated={roundResults?.eliminated || []} onTimeUp={handleResultsTimeUp} />;
       case 'voting':
-        return <VotingRound eliminatedPlayers={eliminatedPlayersForVote} onVote={handleVote} onTimeUp={handleVoteTimeUp} isEliminated={isEliminatedThisRound} />;
+        return <VotingRound eliminatedPlayers={eliminatedPlayersForVote} onVote={handleVote} onTimeUp={handleVoteTimeUp} isEliminated={!canVote} />;
       case 'finished': // New case for finished game
         return <WinnerScreen winners={winners} />;
       case 'lobby':
