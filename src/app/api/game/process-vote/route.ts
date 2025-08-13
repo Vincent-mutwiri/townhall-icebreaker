@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
 import { Player } from '@/models/Player';
+import { Vote } from '@/models/Vote';
 
 export async function POST(request: Request) {
   try {
@@ -13,14 +14,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Game not found.' }, { status: 404 });
     }
 
-    // Simple redemption logic: redeem the first eliminated player
+    // Count votes for each eliminated player
+    const currentRound = game.currentQuestionIndex + 1;
+    const votes = await Vote.find({ game: game._id, round: currentRound });
+    
+    const voteCount: { [key: string]: number } = {};
+    votes.forEach(vote => {
+      const playerId = vote.votedForPlayer.toString();
+      voteCount[playerId] = (voteCount[playerId] || 0) + 1;
+    });
+    
+    // Find player with most votes
     let redeemedPlayer = null;
-    if (eliminatedPlayers.length > 0) {
-      const playerToRedeem = eliminatedPlayers[0];
+    let maxVotes = 0;
+    let playerToRedeem = null;
+    
+    eliminatedPlayers.forEach((player: any) => {
+      const votes = voteCount[player._id] || 0;
+      if (votes > maxVotes) {
+        maxVotes = votes;
+        playerToRedeem = player;
+      }
+    });
+    
+    if (playerToRedeem && maxVotes > 0) {
       await Player.updateOne({ _id: playerToRedeem._id }, { $set: { isEliminated: false } });
       redeemedPlayer = playerToRedeem.name;
-      
-      // Update the game's player list to reflect the redemption
       await game.populate('players');
     }
 
@@ -28,7 +47,11 @@ export async function POST(request: Request) {
     const nextQuestionIndex = game.currentQuestionIndex + 1;
     if (nextQuestionIndex < game.questions.length) {
       game.currentQuestionIndex = nextQuestionIndex;
+      game.lastRedemption = redeemedPlayer;
       await game.save();
+      
+        // Clear lastAnswer for all players when moving to next round
+      await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
       
       const updatedGame = await Game.findById(game._id).populate('questions').populate('players');
       return NextResponse.json({ 

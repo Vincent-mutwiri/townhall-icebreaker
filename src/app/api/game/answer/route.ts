@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
 import { Player } from '@/models/Player';
+import { gameController } from '@/lib/gameController';
 
 export async function POST(request: Request) {
   try {
@@ -32,13 +33,30 @@ export async function POST(request: Request) {
       questionText: currentQuestion.text
     });
 
-    const updateQuery: any = {
+    const player = await Player.findById(playerId);
+    if (!player) {
+      return NextResponse.json({ message: 'Player not found.' }, { status: 404 });
+    }
+
+    const updateQuery: { $set: { lastAnswer: { questionId: string; isCorrect: boolean; submittedAt: Date }; isEliminated?: boolean }; $inc?: { score: number } } = {
       $set: { lastAnswer: { questionId: currentQuestion._id, isCorrect, submittedAt: new Date() } }
     };
     
-    // Increment score if answer is correct
     if (isCorrect) {
-      updateQuery.$inc = { score: 1 };
+      // Calculate time bonus (faster answers get more points)
+      const answerTime = Date.now();
+      const questionStartTime = game.updatedAt.getTime(); // Approximate question start
+      const timeElapsed = Math.max(0, (answerTime - questionStartTime) / 1000);
+      const timeBonus = Math.max(1, Math.floor(10 - timeElapsed)); // Max 10 bonus points
+      const totalPoints = 10 + timeBonus; // Base 10 + time bonus
+      
+      updateQuery.$inc = { score: totalPoints };
+    } else {
+      // Eliminate player immediately on wrong answer
+      updateQuery.$set.isEliminated = true;
+      
+      // Broadcast elimination toast
+      gameController.broadcastElimination(game.pin, player.name);
     }
 
     await Player.updateOne(

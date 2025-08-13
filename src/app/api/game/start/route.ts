@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
 import { Question } from '@/models/Question';
+import { Player } from '@/models/Player';
+import { gameController } from '@/lib/gameController';
 
 async function getDummyQuestions() {
   const questions = await Question.find({ text: /Dummy Question/ }).limit(5);
@@ -49,8 +51,14 @@ export async function POST(request: Request) {
     game.status = 'in-progress';
     game.currentQuestionIndex = 0;
     await game.save();
+    
+    // Clear any previous answers when starting new game
+    await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
 
-    const gameWithQuestion = await Game.findById(game._id).populate('questions');
+    const gameWithQuestion = await Game.findById(game._id).populate('questions').populate('players');
+
+    // Start server-controlled game
+    gameController.startQuestion(pin);
 
     return NextResponse.json({
       message: 'Game started!',

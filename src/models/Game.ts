@@ -36,6 +36,7 @@ const GameSchema = new Schema({
   players: [{ type: pkg.Schema.Types.ObjectId, ref: 'Player' }],
   eliminatedPlayers: [{ type: pkg.Schema.Types.ObjectId, ref: 'Player' }],
   currentQuestionIndex: { type: Number, default: 0 },
+  lastRedemption: { type: String, default: null },
 }, { 
   timestamps: true, // Adds createdAt and updatedAt timestamps
   // Ensure the model uses the existing collection but with our new schema

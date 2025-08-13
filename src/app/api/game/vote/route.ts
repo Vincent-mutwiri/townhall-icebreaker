@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
+import { Game } from '@/models/Game';
+import { Vote } from '@/models/Vote';
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +12,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
     }
 
-    // For now, just return success - vote processing will be handled by timer
+    const game = await Game.findOne({ pin });
+    if (!game) {
+      return NextResponse.json({ message: 'Game not found.' }, { status: 404 });
+    }
+
+    // Record the vote
+    await Vote.create({
+      game: game._id,
+      votedForPlayer: votedForPlayerId,
+      round: game.currentQuestionIndex + 1
+    });
+
     return NextResponse.json({ message: 'Vote submitted.' });
 
   } catch (error) {

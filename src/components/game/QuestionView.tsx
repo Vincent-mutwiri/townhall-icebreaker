@@ -54,7 +54,6 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
     } catch (error) {
       console.error("Failed to submit answer:", error);
       setSelectedAnswer(null);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -66,7 +65,7 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
           <div className="text-3xl font-bold text-green-600">
             ${initialPrize + (currentRound - 1) * incrementAmount}
           </div>
-          <div className="text-sm text-muted-foreground">Round {currentRound} Prize</div>
+          <div className="text-sm text-muted-foreground">Current Prize Pool</div>
         </div>
         <Timer duration={15} onTimeUp={onTimeUp} />
         <CardTitle className="text-center text-2xl md:text-3xl">

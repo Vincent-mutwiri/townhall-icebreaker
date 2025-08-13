@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
 
-export async function GET(request: Request, { params }: { params: { pin: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ pin: string }> }) {
   try {
     await connectToDatabase();
-    const { pin } = params;
+    const { pin } = await context.params;
 
     const game = await Game.findOne({ pin }).populate('players').populate('questions');
     if (!game) {
