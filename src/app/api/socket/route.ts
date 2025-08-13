@@ -1,12 +1,10 @@
-import { NextApiResponse } from 'next';
 import { Server as NetServer } from 'http';
 import { Server as ServerIO } from 'socket.io';
-import { NextApiResponseServerIo } from 'types';
 import { Game } from '@/models/Game';
 import connectToDatabase from '@/lib/database';
 
 // This is the new App Router API route handler
-export default async function handler(req: Request) {
+export async function GET(req: Request) {
   if (req.method === 'GET') {
     try {
       // Initialize the HTTP server

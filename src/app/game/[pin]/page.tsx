@@ -2,9 +2,8 @@
 import { notFound } from 'next/navigation';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
-import { Player } from '@/models/Player'; // We need this import for populate to work correctly
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 // This is a helper function to fetch data for our server component
