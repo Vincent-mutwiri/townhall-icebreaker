@@ -52,11 +52,13 @@ export async function POST(request: Request) {
       
       updateQuery.$inc = { score: totalPoints };
     } else {
-      // Eliminate player immediately on wrong answer
-      updateQuery.$set.isEliminated = true;
-      
-      // Broadcast elimination toast
-      gameController.broadcastElimination(game.pin, player.name);
+      // Eliminate player immediately on wrong answer (only if not already eliminated)
+      if (!player.isEliminated) {
+        updateQuery.$set.isEliminated = true;
+        
+        // Broadcast elimination toast immediately
+        gameController.broadcastElimination(game.pin, player.name);
+      }
     }
 
     await Player.updateOne(

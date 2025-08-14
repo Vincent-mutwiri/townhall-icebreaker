@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 type ResultsScreenProps = {
   survivors: string[];
@@ -28,46 +27,59 @@ export function ResultsScreen({ survivors, eliminated, onTimeUp }: ResultsScreen
   }, [onTimeUp]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-2xl mx-4">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Round Results!</CardTitle>
-          <p className="text-lg text-muted-foreground">Next round starts in {timeLeft}s</p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-green-600 mb-3">✅ Survivors</h3>
-              <div className="space-y-2">
-                {survivors.length > 0 ? (
-                  survivors.map((name, index) => (
-                    <Badge key={index} variant="outline" className="text-green-700 border-green-300 bg-green-50 block">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-4xl">
+        <div className="text-center mb-6">
+          <h1 className="text-4xl font-bold text-white mb-2">Round Results!</h1>
+          <p className="text-xl text-white/80">Next round starts in {timeLeft}s</p>
+        </div>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Survivors Card */}
+          <Card className="border-green-500 bg-green-50">
+            <CardHeader className="bg-green-500 text-white">
+              <CardTitle className="text-2xl text-center">
+                ✅ Survivors ({survivors.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {survivors.length > 0 ? (
+                <div className="space-y-3">
+                  {survivors.map((name, index) => (
+                    <div key={index} className="bg-white p-3 rounded-lg border border-green-200 text-center font-medium text-green-800">
                       {name}
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">None</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-red-600 mb-3">❌ Eliminated</h3>
-              <div className="space-y-2">
-                {eliminated.length > 0 ? (
-                  eliminated.map((name, index) => (
-                    <Badge key={index} variant="outline" className="text-red-700 border-red-300 bg-red-50 block">
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-green-600 font-medium">No survivors this round</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Eliminated Card */}
+          <Card className="border-red-500 bg-red-50">
+            <CardHeader className="bg-red-500 text-white">
+              <CardTitle className="text-2xl text-center">
+                ❌ Eliminated ({eliminated.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              {eliminated.length > 0 ? (
+                <div className="space-y-3">
+                  {eliminated.map((name, index) => (
+                    <div key={index} className="bg-white p-3 rounded-lg border border-red-200 text-center font-medium text-red-800">
                       {name}
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground">None</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-red-600 font-medium">No eliminations this round</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

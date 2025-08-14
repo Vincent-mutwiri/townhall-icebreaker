@@ -42,7 +42,7 @@ export function Lobby({ initialGame }: LobbyProps) {
   );
   const [roundResults, setRoundResults] = useState<{ survivors: string[], eliminated: string[] } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
-  const [lastEventTimestamp, setLastEventTimestamp] = useState<number>(0);
+  const [processedEvents, setProcessedEvents] = useState<Set<string>>(new Set());
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
@@ -57,8 +57,8 @@ export function Lobby({ initialGame }: LobbyProps) {
 
   // Poll for server events
   useEffect(() => {
-    if (gameState.status === 'lobby') return;
-
+    if (view === 'finished') return; // Stop polling when game is finished
+    
     const pollEvents = async () => {
       try {
         const response = await fetch(`/api/game/events/${gameState.pin}`);
@@ -71,9 +71,9 @@ export function Lobby({ initialGame }: LobbyProps) {
       }
     };
 
-    const interval = setInterval(pollEvents, 500); // Poll every 500ms
+    const interval = setInterval(pollEvents, 1000);
     return () => clearInterval(interval);
-  }, [gameState.pin, gameState.status]);
+  }, [gameState.pin, view]);
 
   const handleServerEvent = (event: any) => {
     if (!event || event.type === 'NO_UPDATE') return;
@@ -89,6 +89,7 @@ export function Lobby({ initialGame }: LobbyProps) {
           setView(event.view);
         }
         if (event.roundResults) {
+          console.log('Setting round results:', event.roundResults);
           setRoundResults(event.roundResults);
         }
         if (event.winners) {
@@ -97,10 +98,10 @@ export function Lobby({ initialGame }: LobbyProps) {
         break;
         
       case 'PLAYER_ELIMINATED':
-        // Prevent duplicate toasts by checking timestamp
-        if (event.timestamp && event.timestamp > lastEventTimestamp) {
+        const eventId = `${event.type}-${event.playerName}-${event.timestamp}`;
+        if (!processedEvents.has(eventId)) {
           toast.error(`${event.playerName} has been eliminated!`);
-          setLastEventTimestamp(event.timestamp);
+          setProcessedEvents(prev => new Set([...prev, eventId]));
         }
         break;
     }
@@ -148,8 +149,7 @@ export function Lobby({ initialGame }: LobbyProps) {
   };
 
   const handleResultsTimeUp = () => {
-    // Server handles progression automatically
-    console.log('Results time up');
+    // Server handles progression automatically - no action needed
   };
 
   const renderView = () => {

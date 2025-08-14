@@ -63,7 +63,7 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
       <CardHeader>
         <div className="text-center mb-4">
           <div className="text-3xl font-bold text-green-600">
-            ${initialPrize + (currentRound - 1) * incrementAmount}
+            ${(initialPrize || 100) + ((currentRound || 1) - 1) * (incrementAmount || 20)}
           </div>
           <div className="text-sm text-muted-foreground">Current Prize Pool</div>
         </div>
@@ -72,8 +72,8 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
           {question.text}
         </CardTitle>
         {isEliminated && (
-          <CardDescription className="text-center text-red-600 font-bold">
-            You are eliminated - watching only
+          <CardDescription className="text-center text-red-600 font-bold bg-red-50 p-2 rounded">
+            🚫 You are eliminated - spectating only
           </CardDescription>
         )}
         {hasAnswered && !isEliminated && (
