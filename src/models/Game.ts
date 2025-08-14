@@ -16,6 +16,16 @@ export interface IGame extends Document {
   players: pkg.Schema.Types.ObjectId[];
   eliminatedPlayers: pkg.Schema.Types.ObjectId[];
   currentQuestionIndex: number;
+  questionStartTime?: Date;
+  roundHistory: Array<{
+    roundNumber: number;
+    questionId: pkg.Schema.Types.ObjectId;
+    questionText: string;
+    survivors: string[];
+    eliminated: string[];
+    averageResponseTime?: number;
+    fastestResponse?: { playerName: string; time: number };
+  }>;
 }
 
 const GameSchema = new Schema({
@@ -37,6 +47,19 @@ const GameSchema = new Schema({
   eliminatedPlayers: [{ type: pkg.Schema.Types.ObjectId, ref: 'Player' }],
   currentQuestionIndex: { type: Number, default: 0 },
   lastRedemption: { type: String, default: null },
+  questionStartTime: { type: Date },
+  roundHistory: [{
+    roundNumber: { type: Number, required: true },
+    questionId: { type: pkg.Schema.Types.ObjectId, ref: 'Question', required: true },
+    questionText: { type: String, required: true },
+    survivors: [{ type: String }],
+    eliminated: [{ type: String }],
+    averageResponseTime: { type: Number },
+    fastestResponse: {
+      playerName: { type: String },
+      time: { type: Number }
+    }
+  }],
 }, { 
   timestamps: true, // Adds createdAt and updatedAt timestamps
   // Ensure the model uses the existing collection but with our new schema

@@ -36,7 +36,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'This game has already started.' }, { status: 403 });
     }
 
-    // 4. Create a new player
+    // 5. Check player limit
+    const playerCount = await Player.countDocuments({ game: game._id });
+    if (playerCount >= 150) {
+      return NextResponse.json({ message: 'Game is full. Maximum 150 players allowed.' }, { status: 403 });
+    }
+
+    // 6. Prevent host from joining as player
+    if (name.toLowerCase() === game.hostName?.toLowerCase()) {
+      return NextResponse.json({ message: 'Host cannot join as a player.' }, { status: 403 });
+    }
+
+    // 7. Check for duplicate names
+    const existingPlayer = await Player.findOne({ game: game._id, name: name });
+    if (existingPlayer) {
+      return NextResponse.json({ message: 'A player with this name already exists in the game.' }, { status: 409 });
+    }
+
+    // 8. Create a new player
     const newPlayer = new Player({
       name: name,
       game: game._id, // Link player to the game
@@ -47,10 +64,22 @@ export async function POST(request: Request) {
     game.players.push(newPlayer._id);
     await game.save();
 
+    // 6. Emit socket event for real-time updates (if gameController is available)
+    try {
+      const { gameController } = await import('@/lib/gameController');
+      // Broadcast player update to all clients in the room
+      if (gameController) {
+        // We'll emit this from the client side since we don't have access to io here
+      }
+    } catch (error) {
+      console.log('GameController not available for socket emission');
+    }
+
     return NextResponse.json({
       message: 'Successfully joined the game!',
       pin: game.pin,
       playerId: newPlayer._id,
+      playerName: newPlayer.name
     }, { status: 200 });
 
   } catch (error) {

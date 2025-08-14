@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 export function Timer({ duration, onTimeUp }: { duration: number; onTimeUp: () => void }) {
   const [timeLeft, setTimeLeft] = useState(duration);
 
+
+
   useEffect(() => {
     if (timeLeft <= 0) {
       onTimeUp();

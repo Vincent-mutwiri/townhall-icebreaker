@@ -9,6 +9,8 @@ const RESULTS_DURATION_MS = 5000;
 
 class GameController {
   private io: Server | null = null;
+  private processingRounds: Set<string> = new Set();
+  private timerIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   setIO(io: Server) {
     this.io = io;
@@ -54,75 +56,240 @@ class GameController {
   }
 
   async startQuestion(pin: string) {
+    console.log(`Starting question for game: ${pin}`);
     await connectToDatabase();
-    const game = await Game.findOne({ pin }).populate('players').populate('questions');
-    if (!game || game.status !== 'in-progress') return;
+    
+    // Ensure game is in the correct state
+    const game = await Game.findOneAndUpdate(
+      { pin, status: 'in-progress' },
+      { $set: { questionStartTime: new Date() } },
+      { new: true }
+    ).populate('players').populate('questions');
+    
+    if (!game) {
+      console.log(`Cannot start question: Game ${pin} not found or wrong status`);
+      return;
+    }
 
-    await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
+    // Clear any existing timers for this game
+    if (this.timerIntervals.has(pin)) {
+      clearInterval(this.timerIntervals.get(pin)!);
+      this.timerIntervals.delete(pin);
+    }
+
+    // Clear previous answers
+    await Player.updateMany(
+      { game: game._id },
+      { $unset: { lastAnswer: 1, hasAnswered: 1 } }
+    );
 
     if (this.io) {
-      console.log(`Started question ${game.currentQuestionIndex + 1} for game ${pin} with ${this.io.sockets.adapter.rooms.get(pin)?.size || 0} clients`);
+      const clientCount = this.io.sockets.adapter.rooms.get(pin)?.size || 0;
+      console.log(`Starting question ${game.currentQuestionIndex + 1} for game ${pin} with ${clientCount} clients`);
+      
+      // Emit the question view with updated game state
       this.io.to(pin).emit('game-state-update', {
         game: JSON.parse(JSON.stringify(game)),
         view: 'question'
       });
-      console.log('Question broadcasted to all clients');
+      
+      console.log('Question view broadcasted to all clients');
     }
 
-    setTimeout(async () => {
-      await this.processRound(pin);
-    }, ROUND_DURATION_MS);
+    // Set up the timer for this question
+    const startTime = Date.now();
+    const endTime = startTime + ROUND_DURATION_MS;
+    
+    // Clear any existing timer for this game
+    if (this.timerIntervals.has(pin)) {
+      clearInterval(this.timerIntervals.get(pin)!);
+      this.timerIntervals.delete(pin);
+    }
+
+    // Broadcast initial timer value
+    let timeLeft = Math.ceil(ROUND_DURATION_MS / 1000);
+    if (this.io) {
+      this.io.to(pin).emit('timer-update', { timeLeft });
+    }
+
+    // Set up timer interval for countdown
+    const timerInterval = setInterval(() => {
+      const now = Date.now();
+      timeLeft = Math.max(0, Math.ceil((endTime - now) / 1000));
+      
+      // Broadcast timer update
+      if (this.io) {
+        this.io.to(pin).emit('timer-update', { timeLeft });
+      }
+      
+      // Check if time's up
+      if (now >= endTime) {
+        clearInterval(timerInterval);
+        this.timerIntervals.delete(pin);
+        
+        // Process the round when time's up
+        setTimeout(() => this.processRound(pin), 100);
+      }
+    }, 200); // Update more frequently for smoother countdown
+    
+    // Store the interval for cleanup
+    this.timerIntervals.set(pin, timerInterval);
+    
+    console.log(`Timer started for game ${pin}, will end at ${new Date(endTime).toISOString()}`);
   }
 
   async processRound(pin: string) {
+    if (this.processingRounds.has(pin)) {
+      console.log(`Round already processing for ${pin}`);
+      return;
+    }
+    
+    this.processingRounds.add(pin);
+    console.log(`Starting round processing for ${pin}`);
+    
     await connectToDatabase();
     const game = await Game.findOne({ pin }).populate('players').populate('questions');
-    if (!game || game.status !== 'in-progress') return;
+    if (!game) {
+      console.log(`Game not found for pin: ${pin}`);
+      this.processingRounds.delete(pin);
+      return;
+    }
+
+    // Update game status to processing to prevent race conditions
+    await Game.updateOne(
+      { pin },
+      { $set: { status: 'processing' } }
+    );
 
     const currentQuestion = game.questions[game.currentQuestionIndex];
     const survivors: string[] = [];
     const eliminated: string[] = [];
+    const responseTimes: number[] = [];
+    let fastestResponse: { playerName: string; time: number } | undefined;
 
-    const activePlayers = await Player.find({ game: game._id, isEliminated: false });
+    // Get all players who were active at the start of this round
+    const allPlayers = await Player.find({ game: game._id });
+    const playersActiveThisRound = allPlayers.filter(p => !p.wasEliminatedBeforeRound);
     
-    for (const player of activePlayers) {
-      const answeredCorrectly = player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString() && player.lastAnswer.isCorrect;
+    console.log(`Processing ${playersActiveThisRound.length} players for question ${currentQuestion._id}`);
+    console.log('--- Processing Round ---');
+    console.log('Current Question ID:', currentQuestion._id.toString());
+    
+    for (const player of playersActiveThisRound) {
+      // Skip players already eliminated in previous rounds
+      if (player.isEliminated && !player.lastAnswer?.questionId?.equals(currentQuestion._id)) {
+        continue;
+      }
+      
+      console.log(`\nChecking player: ${player.name}`);
+      console.log('Player lastAnswer:', JSON.stringify(player.lastAnswer, null, 2));
+      
+      const hasAnswered = player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString();
+      const answeredCorrectly = hasAnswered && player.lastAnswer?.isCorrect === true;
+      
+      console.log(`Player: ${player.name}, Has Answered: ${hasAnswered}, Is Correct: ${player.lastAnswer?.isCorrect}, Answered Correctly: ${answeredCorrectly}`);
 
       if (answeredCorrectly) {
         survivors.push(player.name);
+        if (player.lastAnswer?.responseTime) {
+          responseTimes.push(player.lastAnswer.responseTime);
+          if (!fastestResponse || player.lastAnswer.responseTime < fastestResponse.time) {
+            fastestResponse = { playerName: player.name, time: player.lastAnswer.responseTime };
+          }
+        }
       } else {
         eliminated.push(player.name);
-        await Player.updateOne({ _id: player._id }, { $set: { isEliminated: true } });
+        if (!player.isEliminated) {
+          await Player.updateOne({ _id: player._id }, { $set: { isEliminated: true } });
+          
+          // Different messages for no answer vs wrong answer
+          const eliminationReason = hasAnswered ? 'wrong answer' : 'no answer';
+          console.log(`Broadcasting elimination for: ${player.name} (${eliminationReason})`);
+          this.broadcastElimination(pin, player.name, eliminationReason);
+        }
       }
     }
     
-    console.log(`Round processed: ${survivors.length} survivors, ${eliminated.length} eliminated`);
+    console.log(`\nRound processed: Survivors - [${survivors.join(', ')}], Eliminated - [${eliminated.join(', ')}]`);
 
+    // Calculate average response time
+    const averageResponseTime = responseTimes.length > 0 
+      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
+      : undefined;
+
+    // Save round history with analytics
+    await Game.updateOne(
+      { pin },
+      {
+        $push: {
+          roundHistory: {
+            roundNumber: game.currentQuestionIndex + 1,
+            questionId: currentQuestion._id,
+            questionText: currentQuestion.text,
+            survivors,
+            eliminated,
+            averageResponseTime,
+            fastestResponse
+          }
+        }
+      }
+    );
+
+    // Show next question modal with results
     if (this.io) {
       this.io.to(pin).emit('game-state-update', {
-        view: 'results',
-        roundResults: { survivors, eliminated }
+        roundResults: { survivors, eliminated, averageResponseTime, fastestResponse }
       });
+      console.log('Broadcasted results for next question modal:', pin);
     }
+    
+    // Clean up processing flag
+    this.processingRounds.delete(pin);
 
+    // Move to next question after modal duration
     setTimeout(async () => {
-      await this.nextQuestion(pin);
-    }, RESULTS_DURATION_MS);
+      try {
+        console.log(`[${new Date().toISOString()}] Moving to next question after modal`);
+        await this.nextQuestion(pin);
+      } catch (error) {
+        console.error('Error in nextQuestion:', error);
+      }
+    }, 4000); // 3 second modal + 1 second buffer
   }
 
   async nextQuestion(pin: string) {
+    console.log(`[${new Date().toISOString()}] nextQuestion called for game: ${pin}`);
     await connectToDatabase();
-    const game = await Game.findOne({ pin }).populate('players').populate('questions');
-    if (!game || game.status !== 'in-progress') return;
+    
+    // First, get the current game state
+    const game = await Game.findOne({ pin })
+      .populate('players')
+      .populate('questions');
+
+    if (!game) {
+      console.log(`Game not found: ${pin}`);
+      return;
+    }
+
+    // Check if the game is already finished
+    if (game.status === 'finished') {
+      console.log(`Game ${pin} is already finished`);
+      return;
+    }
 
     // Get fresh player data to check elimination status
     const freshPlayers = await Player.find({ game: game._id });
     const activePlayers = freshPlayers.filter(p => !p.isEliminated);
     const isLastQuestion = game.currentQuestionIndex >= game.questions.length - 1;
+    
+    console.log(`Active players: ${activePlayers.length}, Current question index: ${game.currentQuestionIndex}, Total questions: ${game.questions.length}, Is last question: ${isLastQuestion}`);
 
     if (activePlayers.length <= 1 || isLastQuestion) {
-      game.status = 'finished';
-      await game.save();
+      // Update game status to finished
+      await Game.updateOne(
+        { _id: game._id },
+        { $set: { status: 'finished' } }
+      );
       
       const allPlayers = await Player.find({ game: game._id }).sort({ score: -1 });
       const winners = allPlayers.map(p => ({
@@ -132,26 +299,73 @@ class GameController {
       }));
 
       if (this.io) {
+        console.log(`[${new Date().toISOString()}] Game finished. Winners:`, winners);
         this.io.to(pin).emit('game-state-update', {
           view: 'finished',
           winners
         });
       }
+      
+      // Clean up game resources for finished game
+      if (this.timerIntervals.has(pin)) {
+        clearInterval(this.timerIntervals.get(pin)!);
+        this.timerIntervals.delete(pin);
+      }
+      console.log(`Game finished. Winners: ${winners.map(w => w.name).join(', ')}`);
     } else {
-      game.currentQuestionIndex += 1;
-      game.prizePool += game.incrementAmount;
-      await game.save();
+      // Move to next question
+      const nextQuestionIndex = game.currentQuestionIndex + 1;
+      const newPrizePool = game.prizePool + (game.incrementAmount || 0);
+      
+      console.log(`Moving to question ${nextQuestionIndex + 1} (index ${nextQuestionIndex})`);
+      
+      // Update game state for next question
+      const updatedGame = await Game.findOneAndUpdate(
+        { _id: game._id },
+        { 
+          $set: { 
+            currentQuestionIndex: nextQuestionIndex,
+            prizePool: newPrizePool,
+            questionStartTime: new Date(),
+            status: 'in-progress'
+          }
+        },
+        { new: true }
+      ).populate('players').populate('questions');
+      
+      if (!updatedGame) {
+        console.log(`Failed to update game for next question`);
+        return;
+      }
       
       // Clear previous answers before starting next question
-      await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
+      await Player.updateMany(
+        { game: updatedGame._id },
+        { $unset: { lastAnswer: 1, hasAnswered: 1 } }
+      );
       
+      console.log(`[${new Date().toISOString()}] Starting question ${nextQuestionIndex + 1} for game ${pin}`);
+      
+      // Start the next question
       await this.startQuestion(pin);
     }
   }
 
-  broadcastElimination(pin: string, playerName: string) {
+  broadcastElimination(pin: string, playerName: string, reason: string = 'eliminated') {
     if (this.io) {
-      this.io.to(pin).emit('player-eliminated', { playerName });
+      this.io.to(pin).emit('player-eliminated', { playerName, reason });
+    }
+  }
+
+  broadcastWrongAnswer(pin: string, playerName: string) {
+    if (this.io) {
+      this.io.to(pin).emit('wrong-answer', { playerName });
+    }
+  }
+
+  broadcastLiveStats(pin: string, stats: any) {
+    if (this.io) {
+      this.io.to(pin).emit('live-stats', stats);
     }
   }
 
@@ -167,22 +381,213 @@ class GameController {
     await player.save();
 
     // Check if all active players have answered
-    const allActivePlayers = game.players.filter((p: {isEliminated: boolean}) => !p.isEliminated); // Use isEliminated from DB
+    const allActivePlayers = game.players.filter((p: {isEliminated: boolean}) => !p.isEliminated);
     const allAnswered = allActivePlayers.every((p: {hasAnswered: boolean}) => p.hasAnswered);
 
+    // Broadcast live stats
+    await this.broadcastCurrentStats(pin);
+
     if (allAnswered) {
-      game.status = 'answers-submitted'; // Update game status
+      game.status = 'answers-submitted';
       await game.save();
-      this.processRound(pin); // Trigger round processing immediately
+      this.processRound(pin);
     }
 
     // Broadcast updated game state to all players in the room
     if (this.io) {
       this.io.to(pin).emit('game-state-update', {
         game: JSON.parse(JSON.stringify(game)),
-        view: 'question' // Or whatever view is appropriate after an answer
+        view: 'question'
       });
     }
+  }
+
+  async handlePlayerAnswer(pin: string, playerId: string, answer: string) {
+    try {
+      await connectToDatabase();
+      
+      // Use findOneAndUpdate to ensure atomic updates and prevent race conditions
+      const game = await Game.findOne({ 
+        pin, 
+        status: 'in-progress' 
+      }).populate('questions');
+      
+      if (!game) {
+        console.log(`Cannot process answer: game ${pin} not found or not in progress`);
+        return;
+      }
+
+      const currentQuestion = game.questions[game.currentQuestionIndex] as any;
+      if (!currentQuestion) {
+        console.log(`No current question for game ${pin}`);
+        return;
+      }
+
+      // Find the player and check if they've already answered
+      const player = await Player.findOne({
+        _id: playerId,
+        'lastAnswer.questionId': { $ne: currentQuestion._id } // Only if not already answered
+      });
+      
+      if (!player) {
+        console.log(`Player ${playerId} not found or already answered`);
+        return;
+      }
+      
+      const isCorrect = currentQuestion.correctAnswer === answer;
+      const responseTime = Date.now() - new Date(game.questionStartTime || 0).getTime();
+      
+      console.log(`Answer from ${player.name}: ${answer}, correct: ${isCorrect}, response time: ${responseTime}ms`);
+
+      // Prepare the update query
+      const updateQuery: { $set: any; $inc?: { score: number } } = {
+        $set: { 
+          lastAnswer: { 
+            questionId: currentQuestion._id, 
+            isCorrect, 
+            submittedAt: new Date(),
+            responseTime
+          },
+          hasAnswered: true
+        }
+      };
+
+      // Update score if correct
+      if (isCorrect) {
+        updateQuery.$inc = { score: 100 };
+      } else {
+        // Mark as eliminated for wrong answers
+        updateQuery.$set.isEliminated = true;
+      }
+
+      // Update the player's answer and score
+      const updatedPlayer = await Player.findOneAndUpdate(
+        { _id: playerId },
+        updateQuery,
+        { new: true }
+      );
+      
+      if (!updatedPlayer) {
+        console.log(`Failed to update player ${playerId}`);
+        return;
+      }
+      
+      // Send confirmation to the player
+      if (this.io) {
+        this.io.to(pin).emit('answer-confirmed', { 
+          playerId, 
+          isCorrect,
+          score: updatedPlayer.score || 0
+        });
+        
+        // Broadcast player elimination if applicable
+        if (!isCorrect) {
+          this.io.to(pin).emit('player-eliminated', { 
+            playerName: updatedPlayer.name,
+            reason: 'wrong answer'
+          });
+        }
+      }
+      
+      // Check if all active players have answered
+      const [stats] = await Player.aggregate([
+        { $match: { 
+          game: game._id, 
+          isEliminated: false,
+          'lastAnswer.questionId': { $exists: true }
+        }},
+        {
+          $group: {
+            _id: '$lastAnswer.questionId',
+            totalPlayers: { $sum: 1 },
+            currentQuestionAnswers: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$lastAnswer.questionId', currentQuestion._id] },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]) || [];
+      
+      const totalActivePlayers = await Player.countDocuments({ 
+        game: game._id, 
+        isEliminated: false 
+      });
+      
+      const answeredCount = stats?.currentQuestionAnswers || 0;
+      console.log(`Answer stats: ${answeredCount}/${totalActivePlayers} active players answered`);
+      
+      // Broadcast answer progress
+      if (this.io) {
+        this.io.to(pin).emit('answer-progress', { 
+          answered: answeredCount, 
+          total: totalActivePlayers 
+        });
+      }
+      
+      // If all active players have answered, process the round
+      if (totalActivePlayers > 0 && answeredCount >= totalActivePlayers) {
+        console.log('All active players have answered, processing round');
+        // Clear timer since all players answered
+        if (this.timerIntervals.has(pin)) {
+          clearInterval(this.timerIntervals.get(pin)!);
+          this.timerIntervals.delete(pin);
+        }
+        setTimeout(() => this.processRound(pin), 100);
+      }
+    } catch (error) {
+      console.error('Error in handlePlayerAnswer:', error);
+      // Notify player of error
+      if (this.io) {
+        this.io.to(pin).emit('answer-error', { playerId, message: 'Failed to submit answer' });
+      }
+    }
+  }
+
+  async broadcastCurrentStats(pin: string) {
+    await connectToDatabase();
+    const game = await Game.findOne({ pin }).populate('players').populate('questions');
+    if (!game) return;
+
+    const currentQuestion = game.questions[game.currentQuestionIndex];
+    const activePlayers = await Player.find({ game: game._id, isEliminated: false });
+    
+    const playersAnswered = activePlayers.filter(p => 
+      p.lastAnswer?.questionId?.toString() === currentQuestion._id.toString()
+    ).length;
+    
+    const correctAnswers = activePlayers.filter(p => 
+      p.lastAnswer?.questionId?.toString() === currentQuestion._id.toString() && 
+      p.lastAnswer?.isCorrect === true
+    ).length;
+
+    const responseTimes = activePlayers
+      .filter(p => p.lastAnswer?.responseTime)
+      .map(p => p.lastAnswer!.responseTime!);
+    
+    const averageTime = responseTimes.length > 0 
+      ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length 
+      : 0;
+
+    const fastestPlayer = activePlayers
+      .filter(p => p.lastAnswer?.responseTime)
+      .sort((a, b) => (a.lastAnswer?.responseTime || 0) - (b.lastAnswer?.responseTime || 0))[0];
+
+    const stats = {
+      playersAnswered,
+      correctAnswers,
+      averageTime: Math.round(averageTime),
+      fastestPlayer: fastestPlayer ? {
+        name: fastestPlayer.name,
+        time: fastestPlayer.lastAnswer?.responseTime || 0
+      } : undefined
+    };
+
+    this.broadcastLiveStats(pin, stats);
   }
 }
 

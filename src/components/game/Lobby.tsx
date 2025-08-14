@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 import { QuestionView } from "./QuestionView";
 import { ResultsScreen } from "./ResultsScreen";
-
+import { LiveStats } from "./LiveStats";
 import { WinnerScreen } from "./WinnerScreen";
 import { HostView } from "./HostView";
+import { NextQuestionModal } from "./NextQuestionModal";
 import { toast, Toaster } from "sonner";
 
 type Player = { _id: string; name: string; isEliminated: boolean; score?: number; };
@@ -39,19 +40,34 @@ export function Lobby({ initialGame }: LobbyProps) {
   const { socket } = useSocket();
   const [gameState, setGameState] = useState<GameState>(initialGame);
 
-  const [view, setView] = useState<'lobby' | 'question' | 'results' | 'finished'>(
+  const [view, setView] = useState<'lobby' | 'question' | 'results' | 'finished' | 'next-question'>(
     initialGame.status === 'lobby' ? 'lobby' : 'question'
   );
-  const [roundResults, setRoundResults] = useState<{ survivors: string[], eliminated: string[] } | null>(null);
+  const [showNextQuestionModal, setShowNextQuestionModal] = useState(false);
+  const [roundResults, setRoundResults] = useState<{ 
+    survivors: string[]; 
+    eliminated: string[]; 
+    averageResponseTime?: number; 
+    fastestResponse?: { playerName: string; time: number } 
+  } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [processedEvents, setProcessedEvents] = useState<Set<string>>(new Set());
+  const [liveStats, setLiveStats] = useState<any>(null);
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   
   useEffect(() => {
     const storedPlayerId = localStorage.getItem(`player-id-${gameState.pin}`);
     setPlayerId(storedPlayerId);
+    
+    // Check if player still exists in game (reconnection)
+    if (storedPlayerId && !gameState.players.find(p => p._id === storedPlayerId)) {
+      localStorage.removeItem(`player-id-${gameState.pin}`);
+      setPlayerId(null);
+      toast.error('You were disconnected from the game. Please rejoin.');
+    }
     
     const urlParams = new URLSearchParams(window.location.search);
     const isHostParam = urlParams.get('host') === 'true';
@@ -72,27 +88,50 @@ export function Lobby({ initialGame }: LobbyProps) {
 
     const handleGameStateUpdate = (data: {game?: GameState, view?: 'lobby' | 'question' | 'results' | 'finished', roundResults?: {survivors: string[], eliminated: string[]}, winners?: Winner[]}) => {
       console.log('Received game-state-update:', data);
-      if (data.game) {
-        setGameState(data.game);
-      }
-      if (data.view) {
-        console.log(`Switching to view: ${data.view}`);
-        setView(data.view);
-      }
+      
+      // Show next question modal with results
       if (data.roundResults) {
+        console.log('Showing next question modal');
         setRoundResults(data.roundResults);
-        setView('results');
+        setShowNextQuestionModal(true);
+        return;
       }
+      
+      // Handle winners
       if (data.winners) {
         setWinners(data.winners);
         setView('finished');
+        return;
+      }
+      
+      // Update game state (eliminated players need this too)
+      if (data.game) {
+        setGameState(data.game);
+      }
+      
+      // Update view and reset question state for new questions
+      if (data.view) {
+        console.log(`Switching to view: ${data.view}`);
+        setView(data.view);
+        
+        // Reset question state when moving to a new question
+        if (data.view === 'question') {
+          setGameState(prev => ({ ...prev, questionKey: Date.now() }));
+        }
       }
     };
 
-    const handlePlayerEliminated = (data: { playerName: string }) => {
+    const handlePlayerEliminated = (data: { playerName: string; reason?: string }) => {
+      console.log('Player eliminated event received:', data, 'Current view:', view);
       const eventId = `eliminated-${data.playerName}-${Date.now()}`;
       if (!processedEvents.has(eventId)) {
-        toast.error(`💀 ${data.playerName} has been eliminated!`, {
+        const message = data.reason === 'no answer' 
+          ? `⏰ ${data.playerName} ran out of time!`
+          : data.reason === 'wrong answer'
+          ? `💀 ${data.playerName} was eliminated!`
+          : `💀 ${data.playerName} has been eliminated!`;
+          
+        toast.error(message, {
           duration: 3000,
           style: {
             background: '#fee2e2',
@@ -104,19 +143,47 @@ export function Lobby({ initialGame }: LobbyProps) {
       }
     };
 
-    const handlePlayerUpdate = async () => {
-      if (view !== 'lobby') return; // Only update in lobby
-      try {
-        console.log('Updating player list for host...');
-        const response = await fetch(`/api/game/${gameState.pin}`);
-        if (response.ok) {
-          const updatedGame = await response.json();
-          console.log('Updated game state:', updatedGame.players.length, 'players');
-          setGameState(updatedGame);
+    const handleWrongAnswer = (data: { playerName: string }) => {
+      // No toast - elimination is handled by handlePlayerEliminated
+    };
+
+    const handleLiveStats = (stats: any) => {
+      setLiveStats(stats);
+    };
+
+    const handleAnswerConfirmed = (data: { playerId: string; isCorrect: boolean }) => {
+      if (data.playerId === playerId) {
+        const playerName = currentPlayer?.name || 'You';
+        if (data.isCorrect) {
+          toast.success(`🎉 ${playerName} survived!`, { 
+            duration: 3000,
+            style: {
+              background: '#dcfce7',
+              color: '#166534',
+              border: '1px solid #bbf7d0'
+            }
+          });
+        } else {
+          toast.error(`💀 ${playerName} eliminated!`, { 
+            duration: 3000,
+            style: {
+              background: '#fee2e2',
+              color: '#dc2626',
+              border: '1px solid #fecaca'
+            }
+          });
         }
-      } catch (error) {
-        console.error('Failed to update player list:', error);
       }
+    };
+
+    const handleAnswerProgress = (data: { answered: number; total: number }) => {
+      console.log(`${data.answered}/${data.total} players answered`);
+    };
+
+
+
+    const handlePlayerUpdate = () => {
+      // Player updates are handled via WebSocket events only
     };
     
     const handlePlayerJoined = (data: { player: Player }) => {
@@ -129,48 +196,36 @@ export function Lobby({ initialGame }: LobbyProps) {
 
     socket.on('game-state-update', handleGameStateUpdate);
     socket.on('player-eliminated', handlePlayerEliminated);
+    socket.on('wrong-answer', handleWrongAnswer);
+    socket.on('live-stats', handleLiveStats);
+    socket.on('answer-confirmed', handleAnswerConfirmed);
+    socket.on('answer-progress', handleAnswerProgress);
     socket.on('player-update', handlePlayerUpdate);
     socket.on('player-joined', handlePlayerJoined);
 
     return () => {
       socket.off('game-state-update', handleGameStateUpdate);
       socket.off('player-eliminated', handlePlayerEliminated);
+      socket.off('wrong-answer', handleWrongAnswer);
+      socket.off('live-stats', handleLiveStats);
+      socket.off('answer-confirmed', handleAnswerConfirmed);
+      socket.off('answer-progress', handleAnswerProgress);
       socket.off('player-update', handlePlayerUpdate);
       socket.off('player-joined', handlePlayerJoined);
     };
   }, [socket, gameState.pin, processedEvents, view]);
 
-  // Periodic refresh for host to ensure player list is up to date
+
+
+
+
+
+
   useEffect(() => {
-    if (!isHost || view !== 'lobby') return;
-    
-    const refreshInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/game/${gameState.pin}`);
-        if (response.ok) {
-          const updatedGame = await response.json();
-          setGameState(prev => {
-            // Only update if player count changed
-            if (prev.players.length !== updatedGame.players.length) {
-              console.log('Player count changed:', prev.players.length, '->', updatedGame.players.length);
-              return updatedGame;
-            }
-            return prev;
-          });
-        }
-      } catch (error) {
-        console.error('Failed to refresh game state:', error);
-      }
-    }, 2000); // Refresh every 2 seconds
-    
-    return () => clearInterval(refreshInterval);
-  }, [isHost, view, gameState.pin]);
+    const player = gameState.players.find(p => p._id === playerId);
+    setCurrentPlayer(player || null);
+  }, [gameState.players, playerId]);
 
-
-
-
-
-  const currentPlayer = gameState.players.find(p => p._id === playerId);
   const isEliminated = !!currentPlayer?.isEliminated;
 
   // const handleStartGame = async () => {
@@ -209,6 +264,7 @@ export function Lobby({ initialGame }: LobbyProps) {
 
   const handleResultsTimeUp = () => {
     setRoundResults(null); // Clear results when time is up
+    // Auto-progression is handled by server, just clear local results
   };
 
   const renderView = () => {
@@ -227,24 +283,36 @@ export function Lobby({ initialGame }: LobbyProps) {
             incrementAmount={gameState.incrementAmount}
           />;
         }
-        return <QuestionView 
-          question={currentQuestion} 
-          pin={gameState.pin} 
-          onTimeUp={handleTimeUp}
-          isEliminated={isEliminated}
-          currentRound={gameState.currentQuestionIndex + 1}
-          initialPrize={gameState.initialPrize}
-          incrementAmount={gameState.incrementAmount}
-        />;
+        return (
+          <>
+            {(isHost || isEliminated) && (
+              <div className="mb-4">
+                <LiveStats
+                  pin={gameState.pin}
+                  totalPlayers={gameState.players.filter(p => !p.isEliminated).length}
+                  currentRound={gameState.currentQuestionIndex + 1}
+                  averageResponseTime={roundResults?.averageResponseTime}
+                  fastestResponse={roundResults?.fastestResponse}
+                />
+              </div>
+            )}
+            <QuestionView 
+              question={currentQuestion} 
+              pin={gameState.pin} 
+              onTimeUp={handleTimeUp}
+              isEliminated={isEliminated}
+              currentRound={gameState.currentQuestionIndex + 1}
+              initialPrize={gameState.initialPrize}
+              incrementAmount={gameState.incrementAmount}
+            />
+          </>
+        );
       case 'results':
-        return <ResultsScreen 
-          survivors={roundResults?.survivors || []} 
-          eliminated={roundResults?.eliminated || []} 
-          onTimeUp={handleResultsTimeUp}
-        />;
+        // Skip results screen
+        return null;
 
       case 'finished':
-        return <WinnerScreen winners={winners} />;
+        return <WinnerScreen winners={winners} pin={gameState.pin} />;
       case 'lobby':
       default:
         // Player view (hosts are redirected to setup page)
@@ -271,8 +339,8 @@ export function Lobby({ initialGame }: LobbyProps) {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {gameState.players.map((player) => (
-                  <div key={player._id} className="p-3 bg-secondary rounded-lg text-center animate-in fade-in">
+                {gameState.players.map((player, index) => (
+                  <div key={`${player._id}-${index}`} className="p-3 bg-secondary rounded-lg text-center animate-in fade-in">
                     <span className="font-medium">{player.name}</span>
                   </div>
                 ))}
@@ -290,6 +358,19 @@ export function Lobby({ initialGame }: LobbyProps) {
   return (
     <>
       <Toaster richColors />
+      
+      {showNextQuestionModal && roundResults && (
+        <NextQuestionModal
+          currentRound={gameState.currentQuestionIndex + 1}
+          totalQuestions={gameState.questions.length}
+          survivors={roundResults.survivors}
+          eliminated={roundResults.eliminated}
+          onComplete={() => {
+            setShowNextQuestionModal(false);
+            setRoundResults(null);
+          }}
+        />
+      )}
 
       {renderView()}
     </>

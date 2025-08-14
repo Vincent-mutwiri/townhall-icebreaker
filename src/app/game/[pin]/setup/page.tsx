@@ -78,6 +78,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
         if (response.ok) {
           const gameData = await response.json();
           setPlayers(gameData.players || []);
+          console.log('Updated players:', gameData.players?.length || 0);
         }
       } catch (error) {
         console.error('Failed to update players:', error);
@@ -87,11 +88,38 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
     socket.on('player-update', handlePlayerUpdate);
     socket.on('player-joined', handlePlayerUpdate);
     
+    // Also listen for generic game state updates
+    socket.on('game-state-update', handlePlayerUpdate);
+    
     return () => {
       socket.off('player-update', handlePlayerUpdate);
       socket.off('player-joined', handlePlayerUpdate);
+      socket.off('game-state-update', handlePlayerUpdate);
     };
   }, [socket, pin]);
+  
+  // Periodic refresh as backup
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/game/${pin}`);
+        if (response.ok) {
+          const gameData = await response.json();
+          setPlayers(prev => {
+            if (prev.length !== gameData.players?.length) {
+              console.log('Player count changed via polling:', prev.length, '->', gameData.players?.length || 0);
+              return gameData.players || [];
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to poll for players:', error);
+      }
+    }, 3000); // Poll every 3 seconds as backup
+    
+    return () => clearInterval(interval);
+  }, [pin]);
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,27 +268,51 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
       toast.error("Please add at least one question to start the game.");
       return;
     }
-    if (!socket) {
-      toast.error("Not connected to server. Please wait and try again.");
-      return;
-    }
+    
+    setLoading(true);
+    try {
+      // Use a fallback hostSocketId if socket is not connected
+      const hostSocketId = socket?.id || `host-${pin}-${Date.now()}`;
+      
+      console.log('Starting game with:', { pin, hostSocketId, questionCount: gameQuestions.length });
+      
+      const response = await fetch('/api/game/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin,
+          hostSocketId,
+          questionIds: gameQuestions.map(q => q._id),
+        }),
+      });
+      
+      const data = await response.json();
+      console.log('Start game response:', data);
 
-    const response = await fetch('/api/game/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pin,
-        hostSocketId: socket.id,
-        questionIds: gameQuestions.map(q => q._id),
-      }),
-    });
-    const data = await response.json();
-
-    if (response.ok) {
-      socket.emit('start-game', pin, data.game);
-      router.push(`/game/${pin}`);
-    } else {
-      toast.error(data.message || "Failed to start game.");
+      if (response.ok) {
+        // Emit socket event if connected, otherwise use gameController directly
+        if (socket?.connected) {
+          socket.emit('start-game', pin);
+        } else {
+          // Fallback: start game via gameController
+          try {
+            const { gameController } = await import('@/lib/gameController');
+            await gameController.startGame(pin);
+          } catch (error) {
+            console.error('Failed to start game via gameController:', error);
+          }
+        }
+        toast.success("Game started successfully!");
+        router.push(`/game/${pin}?host=true`);
+      } else {
+        console.error('Start game error:', data);
+        toast.error(data.message || "Failed to start game.");
+      }
+    } catch (error) {
+      console.error('Start game error:', error);
+      toast.error("Failed to start game. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
