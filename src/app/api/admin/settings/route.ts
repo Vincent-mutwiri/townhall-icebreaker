@@ -32,7 +32,7 @@ export async function GET() {
     const settingsMap = settings.reduce((acc, setting) => {
       acc[setting.key] = setting.value;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, string>);
 
     return NextResponse.json(settingsMap);
   } catch (error) {

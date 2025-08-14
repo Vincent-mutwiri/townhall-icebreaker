@@ -160,15 +160,15 @@ class GameController {
     const game = await Game.findOne({ pin }).populate('players').populate('questions');
     if (!game) return;
 
-    const player = game.players.find(p => p.id === playerId);
+    const player = game.players.find((p: {id: string}) => p.id === playerId);
     if (!player) return;
 
     player.hasAnswered = true;
     await player.save();
 
     // Check if all active players have answered
-    const allActivePlayers = game.players.filter(p => !p.isEliminated); // Use isEliminated from DB
-    const allAnswered = allActivePlayers.every(p => p.hasAnswered);
+    const allActivePlayers = game.players.filter((p: {isEliminated: boolean}) => !p.isEliminated); // Use isEliminated from DB
+    const allAnswered = allActivePlayers.every((p: {hasAnswered: boolean}) => p.hasAnswered);
 
     if (allAnswered) {
       game.status = 'answers-submitted'; // Update game status

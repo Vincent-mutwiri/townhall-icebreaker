@@ -6,9 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast, Toaster } from "sonner";
-import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Upload, Music, Image as ImageIcon, Home, Database, Settings, Trash2, RefreshCw, Eye, AlertCircle, CheckCircle, Clock, Users, Grid, Play } from "lucide-react";
+import { Upload, Music, Image as ImageIcon, Home, Database, Settings, Trash2, RefreshCw, Eye, AlertCircle, CheckCircle, Clock, Grid, Play } from "lucide-react";
 import Link from "next/link";
 
 const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: string, icon: React.ReactNode, settingKey: 'backgroundUrl' | 'musicUrl' | 'logoUrl', onUploadSuccess: () => void }) => {
@@ -57,8 +55,8 @@ const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: strin
         validateFile(files[0]);
         setFile(files[0]);
         createPreview(files[0]);
-      } catch (error: any) {
-        toast.error(error.message);
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : 'Unknown error');
       }
     }
   };
@@ -92,8 +90,8 @@ const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: strin
     
     try {
       validateFile(file);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Unknown error');
       return;
     }
     
@@ -172,9 +170,9 @@ const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: strin
         onUploadSuccess();
         setUploadProgress(0);
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
-      toast.error(error.message || "Upload failed.");
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
     } finally {
       setIsUploading(false);
       if (!uploadProgress || uploadProgress === 100) {
@@ -208,8 +206,8 @@ const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: strin
                 validateFile(e.target.files[0]);
                 setFile(e.target.files[0]);
                 createPreview(e.target.files[0]);
-              } catch (error: any) {
-                toast.error(error.message);
+              } catch (error: unknown) {
+                toast.error(error instanceof Error ? error.message : 'Unknown error');
               }
             }
           }}
@@ -302,12 +300,12 @@ const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: strin
 };
 
 export default function AdminDashboardPage() {
-  const [currentSettings, setCurrentSettings] = useState<any>({});
+  const [currentSettings, setCurrentSettings] = useState<Record<string, string>>({});
   const [stats, setStats] = useState({ games: 0, questions: 0, globalQuestions: 0, activeGames: 0 });
   const [loading, setLoading] = useState(true);
   const [previewModal, setPreviewModal] = useState<{ type: 'image' | 'video' | 'audio', url: string } | null>(null);
   const [systemHealth, setSystemHealth] = useState({ status: 'checking', message: '' });
-  const [mediaFiles, setMediaFiles] = useState<any[]>([]);
+  const [mediaFiles, setMediaFiles] = useState<Array<{key: string, url: string, type: 'image' | 'video' | 'audio', size: number}>>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
 
   useEffect(() => {
@@ -323,8 +321,8 @@ export default function AdminDashboardPage() {
         const data = await res.json();
         setCurrentSettings(data);
       }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
+    } catch {
+      console.error('Failed to fetch settings');
     } finally {
       setLoading(false);
     }
@@ -353,8 +351,8 @@ export default function AdminDashboardPage() {
         status: healthData.success ? 'healthy' : 'error',
         message: healthData.success ? 'All systems operational' : 'AWS connection issues'
       });
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
+    } catch {
+      console.error('Failed to fetch stats');
       setSystemHealth({ status: 'error', message: 'Failed to check system health' });
     }
   };
@@ -367,8 +365,8 @@ export default function AdminDashboardPage() {
         const files = await res.json();
         setMediaFiles(files);
       }
-    } catch (error) {
-      console.error('Failed to fetch media files:', error);
+    } catch {
+      console.error('Failed to fetch media files');
     } finally {
       setLoadingMedia(false);
     }
@@ -412,7 +410,7 @@ export default function AdminDashboardPage() {
       });
       
       if (res.ok) {
-        setCurrentSettings((prev: any) => ({ ...prev, [settingKey]: url }));
+        setCurrentSettings((prev) => ({ ...prev, [settingKey]: url }));
         toast.success(`Set as active ${type === 'audio' ? 'music' : 'background'}!`);
       }
     } catch (error) {
@@ -428,7 +426,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({ key, value: '' }),
       });
       if (res.ok) {
-        setCurrentSettings((prev: any) => ({ ...prev, [key]: '' }));
+        setCurrentSettings((prev) => ({ ...prev, [key]: '' }));
         toast.success(`${key} cleared successfully!`);
       }
     } catch (error) {
@@ -601,7 +599,8 @@ export default function AdminDashboardPage() {
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                  const nextSibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (nextSibling) nextSibling.style.display = 'flex';
                                 }}
                               />
                             )}
@@ -690,7 +689,8 @@ export default function AdminDashboardPage() {
                               className="max-h-full max-w-full object-contain"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling.style.display = 'flex';
+                                const nextSibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (nextSibling) nextSibling.style.display = 'flex';
                               }}
                             />
                             <div className="hidden w-full h-full items-center justify-center text-gray-500">

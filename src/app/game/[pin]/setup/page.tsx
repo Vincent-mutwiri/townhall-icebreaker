@@ -33,7 +33,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGlobalQuestions, setSelectedGlobalQuestions] = useState<string[]>([]);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Array<{_id: string, name: string}>>([]);
   const [currentView, setCurrentView] = useState<'overview' | 'players' | 'questions'>('overview');
   
   const filteredGlobalQuestions = globalQuestions.filter(q => 
@@ -218,7 +218,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
       setGameQuestions(prev => [...prev, ...newQuestions]);
       setSelectedGlobalQuestions([]);
       toast.success(`Imported ${newQuestions.length} questions!`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to import some questions.");
     } finally {
       setLoading(false);
@@ -370,7 +370,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
                   ← Back to Overview
                 </Button>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">Your Game's Questions ({gameQuestions.length})</h3>
+                  <h3 className="text-xl font-semibold mb-2">Your Game&apos;s Questions ({gameQuestions.length})</h3>
                   <div className="border rounded-lg p-4 min-h-[100px]">
                     {gameQuestions.length > 0 ? (
                       <div className="space-y-2">

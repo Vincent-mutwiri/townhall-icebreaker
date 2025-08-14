@@ -1,26 +1,9 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
-import { Question } from '@/models/Question';
+
 import { Player } from '@/models/Player';
-import { gameController } from '@/lib/gameController';
 
-async function getDummyQuestions() {
-  const questions = await Question.find({ text: /Dummy Question/ }).limit(5);
-  if (questions.length >= 5) {
-    return questions.map(q => q._id);
-  }
-
-  const dummyData = [
-    { text: 'Dummy Question 1: What is 2+2?', options: ['3', '4', '5', '6'], correctAnswer: '4' },
-    { text: 'Dummy Question 2: What is the capital of France?', options: ['Berlin', 'Madrid', 'Paris', 'Rome'], correctAnswer: 'Paris' },
-    { text: 'Dummy Question 3: Which planet is known as the Red Planet?', options: ['Earth', 'Mars', 'Jupiter', 'Venus'], correctAnswer: 'Mars' },
-    { text: 'Dummy Question 4: What is the largest mammal?', options: ['Elephant', 'Blue Whale', 'Giraffe', 'Great White Shark'], correctAnswer: 'Blue Whale' },
-    { text: 'Dummy Question 5: In which year did the Titanic sink?', options: ['1905', '1912', '1918', '1923'], correctAnswer: '1912' },
-  ];
-  const createdQuestions = await Question.insertMany(dummyData);
-  return createdQuestions.map(q => q._id);
-}
 
 export async function POST(request: Request) {
   try {

@@ -53,7 +53,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ p
       return NextResponse.json({ message: 'Game not found.' }, { status: 404 });
     }
 
-    game.questions = game.questions.filter(id => id.toString() !== questionId);
+    game.questions = game.questions.filter((id: string | object) => id.toString() !== questionId);
     await game.save();
 
     return NextResponse.json({ message: 'Question removed from game.' });

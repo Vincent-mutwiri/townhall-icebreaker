@@ -34,7 +34,7 @@ export function BackgroundWrapper({ children, className = "" }: {
             playsInline
             className="absolute top-0 left-0 w-full h-full object-cover -z-10"
           >
-            <source src={backgroundUrl} type={`video/${backgroundUrl.split('.').pop()}`} />
+            <source src={backgroundUrl} type={`video/${backgroundUrl?.split('.').pop()}`} />
           </video>
           <div className="absolute top-0 left-0 w-full h-full bg-black/20 -z-5" />
         </>

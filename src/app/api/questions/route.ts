@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     await connectToDatabase();
     const globalQuestions = await Question.find({ isGlobal: true });

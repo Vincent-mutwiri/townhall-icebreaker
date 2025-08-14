@@ -84,7 +84,7 @@ export function GlobalUIWrapper({ children }: { children: React.ReactNode }) {
             onLoadStart={() => console.log('Video loading...')}
             onCanPlay={() => console.log('Video ready to play')}
           >
-            <source src={backgroundUrl} type={`video/${backgroundUrl.split('.').pop()}`} />
+            <source src={backgroundUrl} type={`video/${backgroundUrl?.split('.').pop()}`} />
           </video>
           {/* Overlay for better text readability */}
           <div className="absolute top-0 left-0 w-full h-full bg-black/20 -z-5" />

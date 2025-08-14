@@ -89,8 +89,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const handleError = (e: Event) => {
-    console.error('Audio loading failed:', e);
+  const handleError = () => {
+    console.error('Audio loading failed');
     setIsLoaded(false);
     setIsPlaying(false);
   };
@@ -136,8 +136,8 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       playPromiseRef.current.then(() => {
         setIsPlaying(true);
         playPromiseRef.current = null;
-      }).catch(e => {
-        console.error("Play failed:", e);
+      }).catch(() => {
+        console.error("Play failed");
         setIsPlaying(false);
         playPromiseRef.current = null;
       });

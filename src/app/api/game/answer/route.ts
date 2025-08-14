@@ -44,7 +44,6 @@ export async function POST(request: Request) {
     
     if (isCorrect) {
       // Calculate time bonus (faster answers get more points)
-      const answerTime = Date.now();
       // Simple scoring - correct answers get 100 points
       const totalPoints = 100;
       

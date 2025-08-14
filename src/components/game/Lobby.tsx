@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useSocket } from "@/context/SocketProvider";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+
 import { QuestionView } from "./QuestionView";
 import { ResultsScreen } from "./ResultsScreen";
 
@@ -38,7 +38,7 @@ type Winner = { _id: string; name: string; score: number; };
 export function Lobby({ initialGame }: LobbyProps) {
   const { socket } = useSocket();
   const [gameState, setGameState] = useState<GameState>(initialGame);
-  const [isLoading, setIsLoading] = useState(false);
+
   const [view, setView] = useState<'lobby' | 'question' | 'results' | 'finished'>(
     initialGame.status === 'lobby' ? 'lobby' : 'question'
   );
@@ -70,7 +70,7 @@ export function Lobby({ initialGame }: LobbyProps) {
 
     socket.emit('join-room', gameState.pin);
 
-    const handleGameStateUpdate = (data: any) => {
+    const handleGameStateUpdate = (data: {game?: GameState, view?: 'lobby' | 'question' | 'results' | 'finished', roundResults?: {survivors: string[], eliminated: string[]}, winners?: Winner[]}) => {
       console.log('Received game-state-update:', data);
       if (data.game) {
         setGameState(data.game);
@@ -173,35 +173,35 @@ export function Lobby({ initialGame }: LobbyProps) {
   const currentPlayer = gameState.players.find(p => p._id === playerId);
   const isEliminated = !!currentPlayer?.isEliminated;
 
-  const handleStartGame = async () => {
-    if (!isHost) return;
-    
-    try {
-      const response = await fetch('/api/game/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: gameState.pin, hostSocketId: gameState.host }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Game started successfully via API');
-        
-        // Update local state immediately for host
-        setGameState(data.game);
-        setView('question');
-        
-        // Emit WebSocket event to update other players
-        if (socket) {
-          socket.emit('start-game', gameState.pin);
-        }
-      } else {
-        console.log('API call failed:', response.status);
-      }
-    } catch (error) {
-      console.error('Failed to start game:', error);
-    }
-  };
+  // const handleStartGame = async () => {
+  //   if (!isHost) return;
+  //   
+  //   try {
+  //     const response = await fetch('/api/game/start', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ pin: gameState.pin, hostSocketId: gameState.host }),
+  //     });
+  //     
+  //     if (response.ok) {
+  //       const data = await response.json();
+  //       console.log('Game started successfully via API');
+  //       
+  //       // Update local state immediately for host
+  //       setGameState(data.game);
+  //       setView('question');
+  //       
+  //       // Emit WebSocket event to update other players
+  //       if (socket) {
+  //         socket.emit('start-game', gameState.pin);
+  //       }
+  //     } else {
+  //       console.log('API call failed:', response.status);
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to start game:', error);
+  //   }
+  // };
 
   const handleTimeUp = () => {
     // Server handles timing automatically now
