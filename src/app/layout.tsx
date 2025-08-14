@@ -2,7 +2,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { SocketProvider } from "@/context/SocketProvider"; // Import the provider
+import { SocketProvider } from "@/context/SocketProvider";
+import { SettingsProvider } from "@/context/SettingsProvider";
+import { AudioProvider } from "@/context/AudioProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SocketProvider>{children}</SocketProvider> {/* Wrap here */}
+        <SettingsProvider>
+          <AudioProvider>
+            <SocketProvider>{children}</SocketProvider>
+          </AudioProvider>
+        </SettingsProvider>
       </body>
     </html>
   );

@@ -233,7 +233,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
     <>
       <Toaster richColors />
       <div className="container mx-auto p-4 md:p-8">
-        <Card>
+        <Card className="bg-white/95 backdrop-blur-sm shadow-xl">
           <CardHeader>
             <CardTitle className="text-3xl">Setup Your Game</CardTitle>
             <CardDescription>Game PIN: <span className="font-bold text-primary">{pin}</span></CardDescription>
@@ -276,7 +276,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
               </div>
             </div>
 
-            <Card>
+            <Card className="bg-white/90 backdrop-blur-sm">
               <CardHeader>
                 <h3 className="text-xl font-semibold flex items-center"><PlusCircle className="mr-2" /> Add a New Question</h3>
               </CardHeader>
@@ -317,7 +317,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full"><Import className="mr-2" /> Import from Global Bank</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl">
+              <DialogContent className="max-w-4xl bg-white/95 backdrop-blur-sm">
                 <DialogHeader>
                   <DialogTitle>Global Question Bank ({globalQuestions.length} questions)</DialogTitle>
                 </DialogHeader>
@@ -403,7 +403,7 @@ export default function GameSetupPage({ params }: { params: Promise<{ pin: strin
 
             {editingQuestion && (
               <Dialog open={!!editingQuestion} onOpenChange={() => setEditingQuestion(null)}>
-                <DialogContent>
+                <DialogContent className="bg-white/95 backdrop-blur-sm">
                   <DialogHeader>
                     <DialogTitle>Edit Question</DialogTitle>
                   </DialogHeader>
