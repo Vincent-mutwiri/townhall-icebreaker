@@ -54,8 +54,15 @@ export function Lobby({ initialGame }: LobbyProps) {
     setPlayerId(storedPlayerId);
     
     const urlParams = new URLSearchParams(window.location.search);
-    setIsHost(urlParams.get('host') === 'true');
-  }, [gameState.pin]);
+    const isHostParam = urlParams.get('host') === 'true';
+    setIsHost(isHostParam);
+    
+    // Redirect hosts to setup page
+    if (isHostParam && view === 'lobby') {
+      window.location.href = `/game/${gameState.pin}/setup`;
+      return;
+    }
+  }, [gameState.pin, view]);
 
   // WebSocket event listeners
   useEffect(() => {
@@ -100,26 +107,64 @@ export function Lobby({ initialGame }: LobbyProps) {
     const handlePlayerUpdate = async () => {
       if (view !== 'lobby') return; // Only update in lobby
       try {
+        console.log('Updating player list for host...');
         const response = await fetch(`/api/game/${gameState.pin}`);
         if (response.ok) {
           const updatedGame = await response.json();
+          console.log('Updated game state:', updatedGame.players.length, 'players');
           setGameState(updatedGame);
         }
       } catch (error) {
         console.error('Failed to update player list:', error);
       }
     };
+    
+    const handlePlayerJoined = (data: { player: Player }) => {
+      console.log('Player joined:', data.player.name);
+      setGameState(prev => ({
+        ...prev,
+        players: [...prev.players, data.player]
+      }));
+    };
 
     socket.on('game-state-update', handleGameStateUpdate);
     socket.on('player-eliminated', handlePlayerEliminated);
     socket.on('player-update', handlePlayerUpdate);
+    socket.on('player-joined', handlePlayerJoined);
 
     return () => {
       socket.off('game-state-update', handleGameStateUpdate);
       socket.off('player-eliminated', handlePlayerEliminated);
       socket.off('player-update', handlePlayerUpdate);
+      socket.off('player-joined', handlePlayerJoined);
     };
   }, [socket, gameState.pin, processedEvents, view]);
+
+  // Periodic refresh for host to ensure player list is up to date
+  useEffect(() => {
+    if (!isHost || view !== 'lobby') return;
+    
+    const refreshInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/game/${gameState.pin}`);
+        if (response.ok) {
+          const updatedGame = await response.json();
+          setGameState(prev => {
+            // Only update if player count changed
+            if (prev.players.length !== updatedGame.players.length) {
+              console.log('Player count changed:', prev.players.length, '->', updatedGame.players.length);
+              return updatedGame;
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to refresh game state:', error);
+      }
+    }, 2000); // Refresh every 2 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, [isHost, view, gameState.pin]);
 
 
 
@@ -202,88 +247,7 @@ export function Lobby({ initialGame }: LobbyProps) {
         return <WinnerScreen winners={winners} />;
       case 'lobby':
       default:
-        if (isHost) {
-          return (
-            <div className="w-full max-w-4xl space-y-6">
-              {/* Host Setup Header */}
-              <Card>
-                <CardHeader className="text-center">
-                  <div className="flex justify-center items-center gap-4 mb-4">
-                    <h2 className="text-2xl font-bold">🎯 Setup Your Game</h2>
-                    <Badge variant="secondary" className="text-xl py-1">
-                      PIN: {gameState.pin}
-                    </Badge>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Prize Pool: <span className="font-bold text-primary">${gameState.prizePool}</span>
-                  </p>
-                </CardHeader>
-              </Card>
-
-              {/* Players in Lobby */}
-              <Card>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-semibold">Players in Lobby</h3>
-                    <Badge variant="outline" className="text-lg">
-                      {gameState.players.length} Players
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Players will see this PIN to join: <span className="font-mono font-bold">{gameState.pin}</span>
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  {gameState.players.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-2">No players have joined yet</p>
-                      <p className="text-sm text-muted-foreground">Share the PIN <span className="font-mono font-bold">{gameState.pin}</span> with your players</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {gameState.players.map((player, index) => (
-                        <div key={player._id} className="p-3 bg-green-50 border border-green-200 rounded-lg text-center animate-in fade-in">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="text-green-600 font-bold">#{index + 1}</span>
-                            <span className="font-medium">{player.name}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Start Game Controls */}
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <Button 
-                      size="lg" 
-                      onClick={handleStartGame} 
-                      disabled={gameState.players.length < 1}
-                      className="text-lg px-8 py-3"
-                    >
-                      🚀 Start Game ({gameState.players.length} Players)
-                    </Button>
-                    {gameState.players.length < 1 && (
-                      <p className="text-sm text-muted-foreground mt-3">
-                        Need at least 1 player to start the game
-                      </p>
-                    )}
-                    {gameState.players.length > 0 && (
-                      <p className="text-sm text-muted-foreground mt-3">
-                        Ready to start! All players will see the first question.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          );
-        }
-        
-        // Player view
+        // Player view (hosts are redirected to setup page)
         return (
           <Card className="w-full max-w-2xl">
             <CardHeader className="text-center">
