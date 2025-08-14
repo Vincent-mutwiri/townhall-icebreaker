@@ -10,8 +10,9 @@ export interface IPlayer extends Document {
   lastAnswer?: {
     questionId: pkg.Schema.Types.ObjectId;
     isCorrect: boolean;
-    submittedAt: Date; // <-- Add this field
+    submittedAt: Date;
   };
+  hasAnswered?: boolean;
 }
 
 const PlayerSchema = new Schema({
@@ -20,6 +21,7 @@ const PlayerSchema = new Schema({
   game: { type: pkg.Schema.Types.ObjectId, ref: 'Game', required: true },
   score: { type: Number, default: 0 },
   isEliminated: { type: Boolean, default: false },
+  hasAnswered: { type: Boolean, default: false },
   lastAnswer: { type: Object, _id: false },
 });
 

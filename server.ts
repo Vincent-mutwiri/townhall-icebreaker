@@ -2,18 +2,11 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
-import { getVoteWinner } from './src/lib/vote-utils.ts';
-import { Game } from './src/models/Game.ts';
-import { Player } from './src/models/Player.ts';
-import connectToDatabase from './src/lib/database.ts';
+import { gameController } from './src/lib/gameController';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
-
-const ROUND_DURATION_MS = 15000; // 15 seconds
-const RESULTS_DURATION_MS = 5000; // 5 seconds
-const VOTE_DURATION_MS = 10000; // 10 seconds
 
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => {
@@ -28,6 +21,8 @@ app.prepare().then(() => {
     },
   });
 
+  gameController.setIO(io);
+
   io.on('connection', (socket) => {
     console.log('New client connected', socket.id);
 
@@ -36,10 +31,38 @@ app.prepare().then(() => {
       console.log(`Socket ${socket.id} joined room ${pin}`);
     });
 
-    socket.on('start-game', (pin, gameData) => {
-      console.log(`Game start event received for room: ${pin}`);
-      io.to(pin).emit('game-started', gameData);
-      startRoundTimer(pin);
+    socket.on('start-game', async (pin) => {
+      console.log(`WebSocket: Starting game for pin: ${pin}`);
+      
+      try {
+        // Get the game data with questions
+        const { Game } = await import('./src/models/Game');
+        const connectToDatabase = (await import('./src/lib/database')).default;
+        
+        await connectToDatabase();
+        const game = await Game.findOne({ pin }).populate('players').populate('questions');
+        
+        if (game) {
+          // Broadcast game data to all clients in the room
+          io.to(pin).emit('game-state-update', {
+            game: JSON.parse(JSON.stringify(game)),
+            view: 'question'
+          });
+          console.log(`Broadcasted game start with data to room ${pin}`);
+          
+          // Start the round timer
+          setTimeout(async () => {
+            console.log(`Round timer expired for ${pin}, processing results`);
+            await processRound(pin, io);
+          }, 15000); // 15 seconds
+        }
+      } catch (error) {
+        console.error(`Error broadcasting game start for ${pin}:`, error);
+      }
+    });
+
+    socket.on('player-joined', (pin) => {
+      io.to(pin).emit('player-update');
     });
 
     socket.on('disconnect', () => {
@@ -47,130 +70,108 @@ app.prepare().then(() => {
     });
   });
 
-  function startRoundTimer(pin: string) {
-    console.log(`Round timer started for game ${pin}.`);
-    setTimeout(() => processRoundEnd(pin), ROUND_DURATION_MS);
-  }
-
-  async function processRoundEnd(pin: string) {
-    console.log(`Round ended for game ${pin}. Processing results...`);
+  // Round processing function
+  async function processRound(pin: string, io: any) {
     try {
+      const { Game } = await import('./src/models/Game');
+      const { Player } = await import('./src/models/Player');
+      const connectToDatabase = (await import('./src/lib/database')).default;
+      
       await connectToDatabase();
-      // Use .populate on the 'questions' field to access question data
       const game = await Game.findOne({ pin }).populate('players').populate('questions');
       if (!game) return;
 
-      const currentQuestion: any = game.questions[game.currentQuestionIndex]; // eslint-disable-line @typescript-eslint/no-explicit-any
-      const roundStartTime = new Date(Date.now() - ROUND_DURATION_MS); // Approx. start time
+      const currentQuestion = game.questions[game.currentQuestionIndex];
       const survivors: string[] = [];
-      const eliminatedThisRound: string[] = [];
+      const eliminated: string[] = [];
 
-      for (const player of game.players) {
-        if (player.isEliminated) continue;
-
-        const answeredCorrectly =
-          player.lastAnswer?.questionId?.toString() === currentQuestion?._id?.toString() &&
-          player.lastAnswer?.isCorrect;
+      const activePlayers = await Player.find({ game: game._id, isEliminated: false });
+      
+      for (const player of activePlayers) {
+        const answeredCorrectly = player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString() && player.lastAnswer.isCorrect;
 
         if (answeredCorrectly) {
           survivors.push(player.name);
-
-          // --- SCORE CALCULATION ---
-          const timeTakenMs = player.lastAnswer.submittedAt.getTime() - roundStartTime.getTime();
-          const timeBonus = Math.max(0, Math.floor((ROUND_DURATION_MS - timeTakenMs) / 1000) * 10); // 10 points per second left
-          const pointsAwarded = 100 + timeBonus; // 100 base points
-
-          await Player.updateOne({ _id: player._id }, { $inc: { score: pointsAwarded } });
-          // --- END OF SCORE CALCULATION ---
-
         } else {
-          eliminatedThisRound.push(player.name);
+          eliminated.push(player.name);
           await Player.updateOne({ _id: player._id }, { $set: { isEliminated: true } });
         }
       }
 
-      io.to(pin).emit('round-results', { survivors, eliminated: eliminatedThisRound });
-      setTimeout(() => startVotingRound(pin), RESULTS_DURATION_MS);
+      console.log(`Round processed: ${survivors.length} survivors, ${eliminated.length} eliminated`);
 
+      // Broadcast results
+      io.to(pin).emit('game-state-update', {
+        view: 'results',
+        roundResults: { survivors, eliminated }
+      });
+
+      // Next question after 5 seconds
+      setTimeout(async () => {
+        await nextQuestion(pin, io);
+      }, 5000);
+      
     } catch (error) {
-      console.error(`Error processing round for game ${pin}:`, error);
+      console.error('Error processing round:', error);
     }
   }
 
-  async function startVotingRound(pin: string) {
-    console.log(`Starting voting round for game ${pin}.`);
+  async function nextQuestion(pin: string, io: any) {
     try {
+      const { Game } = await import('./src/models/Game');
+      const { Player } = await import('./src/models/Player');
+      const connectToDatabase = (await import('./src/lib/database')).default;
+      
       await connectToDatabase();
-      // Get all players who have ever been eliminated
-      const gameDoc = await Game.findOne({ pin });
-      if (!gameDoc) return;
+      const game = await Game.findOne({ pin }).populate('players').populate('questions');
+      if (!game) return;
 
-      const eliminatedPlayers = await Player.find({ game: gameDoc._id, isEliminated: true });
+      const freshPlayers = await Player.find({ game: game._id });
+      const activePlayers = freshPlayers.filter(p => !p.isEliminated);
+      const isLastQuestion = game.currentQuestionIndex >= game.questions.length - 1;
 
-      if (eliminatedPlayers.length === 0) {
-        console.log(`No one to vote for in game ${pin}. Moving to next round.`);
-        // If no one is eliminated, skip voting and go to the next round
-        setTimeout(() => startNextRound(pin), 1000); // Short delay
-        return;
+      if (activePlayers.length <= 1 || isLastQuestion) {
+        // Game over
+        game.status = 'finished';
+        await game.save();
+        
+        const allPlayers = await Player.find({ game: game._id }).sort({ score: -1 });
+        const winners = allPlayers.map(p => ({
+          _id: p._id,
+          name: p.name,
+          score: p.score || 0
+        }));
+
+        io.to(pin).emit('game-state-update', {
+          view: 'finished',
+          winners
+        });
+      } else {
+        // Next question
+        game.currentQuestionIndex += 1;
+        game.prizePool += game.incrementAmount;
+        await game.save();
+        
+        // Clear previous answers
+        await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
+        
+        const updatedGame = await Game.findById(game._id).populate('players').populate('questions');
+        
+        io.to(pin).emit('game-state-update', {
+          game: JSON.parse(JSON.stringify(updatedGame)),
+          view: 'question'
+        });
+        
+        console.log(`Started question ${game.currentQuestionIndex + 1} for game ${pin}`);
+        
+        // Start timer for next round
+        setTimeout(async () => {
+          await processRound(pin, io);
+        }, 15000);
       }
-
-      io.to(pin).emit('voting-started', { eliminatedPlayers: JSON.parse(JSON.stringify(eliminatedPlayers)) });
-
-      // Start timer to end the voting round
-      setTimeout(() => processVoteEnd(pin), VOTE_DURATION_MS);
-
     } catch (error) {
-      console.error(`Error starting voting for game ${pin}:`, error);
+      console.error('Error in nextQuestion:', error);
     }
-  }
-
-  async function processVoteEnd(pin: string) {
-    console.log(`Voting ended for game ${pin}.`);
-    const winnerId = getVoteWinner(pin);
-
-    if (winnerId) {
-      // We have a winner, redeem them!
-      await connectToDatabase();
-      await Player.updateOne({ _id: winnerId }, { $set: { isEliminated: false } });
-      const redeemedPlayer = await Player.findById(winnerId);
-      io.to(pin).emit('player-redeemed', { name: redeemedPlayer?.name });
-    } else {
-      // No one was redeemed
-      io.to(pin).emit('player-redeemed', { name: null });
-    }
-
-    // Wait a moment before starting the next round
-    setTimeout(() => startNextRound(pin), 3000);
-  }
-
-  async function startNextRound(pin: string) {
-    console.log(`Starting next round for game ${pin}.`);
-    await connectToDatabase();
-    const game = await Game.findOne({ pin });
-    if (!game) return;
-
-    // Check for win condition
-    const activePlayers = await Player.find({ game: game._id, isEliminated: false }).sort({ score: -1 });
-
-    const isLastQuestion = game.currentQuestionIndex >= game.questions.length - 1;
-    const isOneOrLessPlayerLeft = activePlayers.length <= 1;
-
-    if (isLastQuestion || isOneOrLessPlayerLeft) {
-      console.log(`Game over for game ${pin}.`);
-      await Game.updateOne({ _id: game._id }, { $set: { status: 'finished' } });
-      io.to(pin).emit('game-over', { winners: JSON.parse(JSON.stringify(activePlayers)) });
-      return;
-    }
-
-    // Move to the next question
-    game.currentQuestionIndex += 1;
-    await game.save();
-
-    const gameWithNextQuestion = await Game.findById(game._id).populate('questions');
-    io.to(pin).emit('next-round-started', { game: JSON.parse(JSON.stringify(gameWithNextQuestion)) });
-
-    // Start the timer for the new round
-    startRoundTimer(pin);
   }
 
   const port = process.env.PORT || 3000;

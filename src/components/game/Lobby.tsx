@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSocket } from "@/context/SocketProvider";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ type LobbyProps = {
 type Winner = { _id: string; name: string; score: number; };
 
 export function Lobby({ initialGame }: LobbyProps) {
+  const { socket } = useSocket();
   const [gameState, setGameState] = useState<GameState>(initialGame);
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'lobby' | 'question' | 'results' | 'finished'>(
@@ -55,57 +57,71 @@ export function Lobby({ initialGame }: LobbyProps) {
     setIsHost(urlParams.get('host') === 'true');
   }, [gameState.pin]);
 
-  // Poll for server events
+  // WebSocket event listeners
   useEffect(() => {
-    if (view === 'finished') return; // Stop polling when game is finished
-    
-    const pollEvents = async () => {
-      try {
-        const response = await fetch(`/api/game/events/${gameState.pin}`);
-        if (response.ok) {
-          const event = await response.json();
-          handleServerEvent(event);
-        }
-      } catch (error) {
-        console.error('Failed to poll events:', error);
+    if (!socket) return;
+
+    socket.emit('join-room', gameState.pin);
+
+    const handleGameStateUpdate = (data: any) => {
+      console.log('Received game-state-update:', data);
+      if (data.game) {
+        setGameState(data.game);
+      }
+      if (data.view) {
+        console.log(`Switching to view: ${data.view}`);
+        setView(data.view);
+      }
+      if (data.roundResults) {
+        setRoundResults(data.roundResults);
+        setView('results');
+      }
+      if (data.winners) {
+        setWinners(data.winners);
+        setView('finished');
       }
     };
 
-    const interval = setInterval(pollEvents, 1000);
-    return () => clearInterval(interval);
-  }, [gameState.pin, view]);
+    const handlePlayerEliminated = (data: { playerName: string }) => {
+      const eventId = `eliminated-${data.playerName}-${Date.now()}`;
+      if (!processedEvents.has(eventId)) {
+        toast.error(`💀 ${data.playerName} has been eliminated!`, {
+          duration: 3000,
+          style: {
+            background: '#fee2e2',
+            color: '#dc2626',
+            border: '1px solid #fecaca'
+          }
+        });
+        setProcessedEvents(prev => new Set([...prev, eventId]));
+      }
+    };
 
-  const handleServerEvent = (event: any) => {
-    if (!event || event.type === 'NO_UPDATE') return;
-    
-    console.log('Received server event:', event);
-    
-    switch (event.type) {
-      case 'SYNC_STATE':
-        if (event.game) {
-          setGameState(event.game);
+    const handlePlayerUpdate = async () => {
+      if (view !== 'lobby') return; // Only update in lobby
+      try {
+        const response = await fetch(`/api/game/${gameState.pin}`);
+        if (response.ok) {
+          const updatedGame = await response.json();
+          setGameState(updatedGame);
         }
-        if (event.view) {
-          setView(event.view);
-        }
-        if (event.roundResults) {
-          console.log('Setting round results:', event.roundResults);
-          setRoundResults(event.roundResults);
-        }
-        if (event.winners) {
-          setWinners(event.winners);
-        }
-        break;
-        
-      case 'PLAYER_ELIMINATED':
-        const eventId = `${event.type}-${event.playerName}-${event.timestamp}`;
-        if (!processedEvents.has(eventId)) {
-          toast.error(`${event.playerName} has been eliminated!`);
-          setProcessedEvents(prev => new Set([...prev, eventId]));
-        }
-        break;
-    }
-  };
+      } catch (error) {
+        console.error('Failed to update player list:', error);
+      }
+    };
+
+    socket.on('game-state-update', handleGameStateUpdate);
+    socket.on('player-eliminated', handlePlayerEliminated);
+    socket.on('player-update', handlePlayerUpdate);
+
+    return () => {
+      socket.off('game-state-update', handleGameStateUpdate);
+      socket.off('player-eliminated', handlePlayerEliminated);
+      socket.off('player-update', handlePlayerUpdate);
+    };
+  }, [socket, gameState.pin, processedEvents, view]);
+
+
 
 
 
@@ -114,42 +130,40 @@ export function Lobby({ initialGame }: LobbyProps) {
 
   const handleStartGame = async () => {
     if (!isHost) return;
-    setIsLoading(true);
-
+    
     try {
       const response = await fetch('/api/game/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: gameState.pin, hostSocketId: gameState.host }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-
-      setGameState(data.game);
-      setView('question');
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Game started successfully via API');
+        
+        // Update local state immediately for host
+        setGameState(data.game);
+        setView('question');
+        
+        // Emit WebSocket event to update other players
+        if (socket) {
+          socket.emit('start-game', gameState.pin);
+        }
+      } else {
+        console.log('API call failed:', response.status);
+      }
     } catch (error) {
-      console.error("Failed to start game:", error);
-      toast.error(`Failed to start game: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to start game:', error);
     }
   };
 
-  const handleTimeUp = async () => {
-    // Trigger server processing when client timer expires
-    try {
-      await fetch('/api/game/process-round', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: gameState.pin }),
-      });
-    } catch (error) {
-      console.error('Failed to trigger round processing:', error);
-    }
+  const handleTimeUp = () => {
+    // Server handles timing automatically now
   };
 
   const handleResultsTimeUp = () => {
-    // Server handles progression automatically - no action needed
+    setRoundResults(null); // Clear results when time is up
   };
 
   const renderView = () => {
@@ -220,8 +234,8 @@ export function Lobby({ initialGame }: LobbyProps) {
 
               {isHost && gameState.status === 'lobby' && (
                 <div className="mt-8 text-center">
-                  <Button size="lg" onClick={handleStartGame} disabled={isLoading || gameState.players.length < 1}>
-                    {isLoading ? 'Starting...' : `Start Game (${gameState.players.length} Players)`}
+                  <Button size="lg" onClick={handleStartGame} disabled={gameState.players.length < 1}>
+                    Start Game ({gameState.players.length} Players)
                   </Button>
                   {gameState.players.length < 1 && <p className="text-xs text-muted-foreground mt-2">Need at least 1 player to start.</p>}
                 </div>

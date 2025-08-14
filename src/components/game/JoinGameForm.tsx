@@ -52,7 +52,10 @@ export function JoinGameForm() {
         socket.emit('player-joined', data.pin);
       }
 
-      router.push(`/game/${data.pin}`);
+      // Small delay to ensure WebSocket event is processed
+      setTimeout(() => {
+        router.push(`/game/${data.pin}`);
+      }, 100);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

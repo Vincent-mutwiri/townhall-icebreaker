@@ -47,18 +47,24 @@ export async function POST(request: Request) {
     }
 
     const questionIds = await getDummyQuestions();
-    game.questions = questionIds;
-    game.status = 'in-progress';
-    game.currentQuestionIndex = 0;
-    await game.save();
+    
+    // Use findOneAndUpdate to avoid version conflicts
+    const updatedGame = await Game.findOneAndUpdate(
+      { pin },
+      { 
+        questions: questionIds,
+        status: 'in-progress',
+        currentQuestionIndex: 0
+      },
+      { new: true }
+    );
     
     // Clear any previous answers when starting new game
     await Player.updateMany({ game: game._id }, { $unset: { lastAnswer: 1 } });
 
-    const gameWithQuestion = await Game.findById(game._id).populate('questions').populate('players');
+    const gameWithQuestion = await Game.findById(updatedGame._id).populate('questions').populate('players');
 
-    // Start server-controlled game
-    gameController.startQuestion(pin);
+    // Game will be started via WebSocket event from client
 
     return NextResponse.json({
       message: 'Game started!',

@@ -45,26 +45,24 @@ export async function POST(request: Request) {
     if (isCorrect) {
       // Calculate time bonus (faster answers get more points)
       const answerTime = Date.now();
-      const questionStartTime = game.updatedAt.getTime(); // Approximate question start
-      const timeElapsed = Math.max(0, (answerTime - questionStartTime) / 1000);
-      const timeBonus = Math.max(1, Math.floor(10 - timeElapsed)); // Max 10 bonus points
-      const totalPoints = 10 + timeBonus; // Base 10 + time bonus
+      // Simple scoring - correct answers get 100 points
+      const totalPoints = 100;
       
       updateQuery.$inc = { score: totalPoints };
-    } else {
-      // Eliminate player immediately on wrong answer (only if not already eliminated)
-      if (!player.isEliminated) {
-        updateQuery.$set.isEliminated = true;
-        
-        // Broadcast elimination toast immediately
-        gameController.broadcastElimination(game.pin, player.name);
-      }
+    } else if (!player.isEliminated) {
+      // Eliminate player immediately on wrong answer
+      updateQuery.$set.isEliminated = true;
+      
+      // Broadcast elimination toast immediately
+      gameController.broadcastElimination(game.pin, player.name);
     }
 
     await Player.updateOne(
       { _id: playerId, game: game._id },
       updateQuery
     );
+
+    // Answer processed successfully
 
     return NextResponse.json({ message: 'Answer submitted.', yourAnswer: answer, isCorrect });
 
