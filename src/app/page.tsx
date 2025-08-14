@@ -1,4 +1,7 @@
 // src/app/page.tsx
+"use client";
+
+import { useState } from "react";
 import { CreateGameForm } from "@/components/game/CreateGameForm";
 import { JoinGameForm } from "@/components/game/JoinGameForm";
 import { Separator } from "@/components/ui/separator";
@@ -9,6 +12,8 @@ import { Settings } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
+  const [showHostCard, setShowHostCard] = useState(false);
+
   return (
     <BackgroundWrapper className="min-h-screen">
       <main className="flex min-h-screen w-full flex-col items-center justify-center p-4">
@@ -24,18 +29,37 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-8">
-          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
-            <CreateGameForm />
-          </div>
-          <div className="flex items-center h-full">
-            <Separator orientation="vertical" className="hidden md:block h-20 bg-white/50" />
-            <div className="md:hidden text-white font-semibold">OR</div>
-            <Separator orientation="horizontal" className="block md:hidden w-20 bg-white/50" />
-          </div>
-          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
-            <JoinGameForm />
-          </div>
+        <div className="flex flex-col items-center gap-8">
+          {showHostCard ? (
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
+                <CreateGameForm />
+              </div>
+              <div className="flex items-center h-full">
+                <Separator orientation="vertical" className="hidden md:block h-20 bg-white/50" />
+                <div className="md:hidden text-white font-semibold">OR</div>
+                <Separator orientation="horizontal" className="block md:hidden w-20 bg-white/50" />
+              </div>
+              <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
+                <JoinGameForm />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
+              <JoinGameForm />
+            </div>
+          )}
+        </div>
+        
+        <div className="absolute top-4 left-4">
+          <Button 
+            onClick={() => setShowHostCard(!showHostCard)}
+            variant="outline" 
+            size="sm" 
+            className="bg-white/90 backdrop-blur-sm"
+          >
+            {showHostCard ? 'Hide Host' : 'Host'}
+          </Button>
         </div>
         
         <div className="absolute top-4 right-4">

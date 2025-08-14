@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Winner = { _id: string; name: string; score: number; };
+type Winner = { _id: string; name: string; score: number; isEliminated?: boolean; };
 type RoundHistory = {
   roundNumber: number;
   questionText: string;
@@ -84,11 +84,34 @@ export function WinnerScreen({ winners, pin }: WinnerScreenProps) {
   const totalEliminated = roundHistory.reduce((acc, round) => acc + round.eliminated.length, 0);
   const totalSurvived = winners.length;
 
+  if (!isHost) {
+    // Player view - hide results
+    return (
+      <div className="w-full max-w-2xl space-y-8 text-center">
+        <div>
+          <h1 className="text-6xl font-bold text-yellow-600 mb-4">🏆 Game Over! 🏆</h1>
+          <p className="text-2xl text-gray-700">Thank you for playing!</p>
+        </div>
+        
+        <Card className="bg-gradient-to-r from-blue-400 to-purple-600 text-white shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl">🎉 Results Coming Soon 🎉</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center py-8">
+            <h2 className="text-2xl font-bold mb-4">The champion and final leaderboard</h2>
+            <p className="text-xl">will be revealed at the end of the townhall!</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Host view - show full results
   return (
     <div className="w-full max-w-6xl space-y-8">
       <div className="text-center">
         <h1 className="text-6xl font-bold text-yellow-600 mb-4">🏆 Game Over! 🏆</h1>
-        <p className="text-2xl text-gray-700">Congratulations to all players!</p>
+        <p className="text-2xl text-gray-700">Host View - Full Results</p>
       </div>
 
       {/* Winner Podium */}
@@ -104,42 +127,7 @@ export function WinnerScreen({ winners, pin }: WinnerScreenProps) {
         </CardContent>
       </Card>
 
-      {/* Statistics Cards - Only for Host */}
-      {isHost && roundHistory.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow bg-green-50 border-green-200"
-            onClick={() => setSelectedRound({ roundNumber: 0, questionText: 'Final Survivors', survivors: winners.map(w => w.name), eliminated: [] })}
-          >
-            <CardHeader className="bg-green-500 text-white">
-              <CardTitle className="text-2xl text-center">
-                ✅ Final Survivors ({totalSurvived})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-center text-green-600 font-medium">
-                Click to view all survivors
-              </p>
-            </CardContent>
-          </Card>
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow bg-red-50 border-red-200"
-            onClick={() => setSelectedRound({ roundNumber: 0, questionText: 'All Eliminations', survivors: [], eliminated: roundHistory.flatMap(r => r.eliminated) })}
-          >
-            <CardHeader className="bg-red-500 text-white">
-              <CardTitle className="text-2xl text-center">
-                ❌ Total Eliminated ({totalEliminated})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <p className="text-center text-red-600 font-medium">
-                Click to view elimination history
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Round History - Only for Host */}
       {isHost && roundHistory.length > 0 && (
@@ -172,18 +160,48 @@ export function WinnerScreen({ winners, pin }: WinnerScreenProps) {
         </Card>
       )}
 
-      {/* Final Rankings */}
+      {/* Final Survivors - Host Only */}
       <Card className="bg-white/90 backdrop-blur-sm shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl text-center text-gray-800">Final Leaderboard</CardTitle>
+          <CardTitle className="text-2xl text-center text-gray-800">Final Survivors</CardTitle>
+          <p className="text-center text-gray-600">Players who made it to the final round</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {winners.filter(w => !w.isEliminated).map((winner, index) => (
+              <div key={winner._id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border-2 border-green-200">
+                <div className="flex items-center space-x-4">
+                  <div className="text-2xl font-bold text-green-600">#{index + 1}</div>
+                  <div className="text-xl font-semibold">{winner.name}</div>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">Final Survivor</Badge>
+                </div>
+                <Badge variant="outline" className="text-lg py-1 px-3 border-green-500">
+                  {winner.score} points
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Full Leaderboard - Host Only */}
+      <Card className="bg-white/90 backdrop-blur-sm shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center text-gray-800">Complete Leaderboard</CardTitle>
+          <p className="text-center text-gray-600">All players ranked by performance</p>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {winners.map((winner, index) => (
-              <div key={winner._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div key={winner._id} className={`flex items-center justify-between p-4 rounded-lg ${
+                winner.score > 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+              } border-2`}>
                 <div className="flex items-center space-x-4">
                   <div className="text-2xl font-bold text-gray-600">#{index + 1}</div>
                   <div className="text-xl font-semibold">{winner.name}</div>
+                  <Badge variant="secondary" className={winner.score > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                    {winner.score > 0 ? 'Survivor' : 'Eliminated'}
+                  </Badge>
                 </div>
                 <Badge variant="outline" className="text-lg py-1 px-3">
                   {winner.score} points

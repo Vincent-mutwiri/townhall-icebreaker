@@ -295,7 +295,8 @@ class GameController {
       const winners = allPlayers.map(p => ({
         _id: p._id,
         name: p.name,
-        score: p.score || 0
+        score: p.score || 0,
+        isEliminated: p.isEliminated || false
       }));
 
       if (this.io) {
@@ -345,6 +346,12 @@ class GameController {
       );
       
       console.log(`[${new Date().toISOString()}] Starting question ${nextQuestionIndex + 1} for game ${pin}`);
+      
+      // Clear any existing timers before starting next question
+      if (this.timerIntervals.has(pin)) {
+        clearInterval(this.timerIntervals.get(pin)!);
+        this.timerIntervals.delete(pin);
+      }
       
       // Start the next question
       await this.startQuestion(pin);

@@ -71,11 +71,16 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
     <Card className="w-full max-w-6xl animate-in fade-in">
       <CardHeader>
         <div className="text-center mb-4">
-          <div className="text-3xl font-bold text-green-600">
+          <div className="text-3xl font-bold text-green-600 animate-pulse">
             ${(initialPrize || 100) + ((currentRound || 1) - 1) * (incrementAmount || 20)}
           </div>
           <div className="text-sm text-muted-foreground">
             Round {currentRound} • Current Prize Pool
+            {currentRound > 1 && (
+              <span className="ml-2 text-green-600 font-semibold animate-bounce">
+                +${incrementAmount || 20}
+              </span>
+            )}
           </div>
         </div>
         <Timer duration={15} onTimeUp={onTimeUp} />

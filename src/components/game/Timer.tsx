@@ -6,6 +6,11 @@ import { useEffect, useState } from 'react';
 export function Timer({ duration, onTimeUp }: { duration: number; onTimeUp: () => void }) {
   const [timeLeft, setTimeLeft] = useState(duration);
 
+  // Reset timer when duration changes (new question)
+  useEffect(() => {
+    setTimeLeft(duration);
+  }, [duration]);
+
 
 
   useEffect(() => {
