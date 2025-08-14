@@ -29,7 +29,9 @@ export const useAudio = () => useContext(AudioContext);
 
 export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('audio-muted') === 'true';
@@ -74,12 +76,15 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   const handleCanPlay = () => {
     setIsLoaded(true);
     setIsBuffering(false);
-    if (!isMuted && audioRef.current) {
+    
+    if (audioRef.current) {
+      // Start muted autoplay immediately
+      audioRef.current.muted = true;
+      audioRef.current.volume = volume;
       audioRef.current.play().then(() => {
         setIsPlaying(true);
-      }).catch(e => {
-        console.error("Auto-play failed:", e);
-        setIsPlaying(false);
+      }).catch(() => {
+        // Muted autoplay failed - will start on user interaction
       });
     }
   };
@@ -94,17 +99,47 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     setIsPlaying(false);
   };
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current || !isLoaded) return;
+    
+    if (!userInteracted) {
+      setUserInteracted(true);
+      if (!isMuted && audioRef.current.muted) {
+        audioRef.current.muted = false;
+        audioRef.current.volume = volume;
+      }
+    }
 
     if (isPlaying) {
+      // Wait for any pending play promise before pausing
+      if (playPromiseRef.current) {
+        try {
+          await playPromiseRef.current;
+        } catch (e) {
+          // Ignore errors from previous play attempts
+        }
+        playPromiseRef.current = null;
+      }
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().then(() => {
+      if (!isMuted) {
+        audioRef.current.muted = false;
+        audioRef.current.volume = volume;
+      }
+      
+      if (playPromiseRef.current) {
+        playPromiseRef.current.catch(() => {});
+      }
+      
+      playPromiseRef.current = audioRef.current.play();
+      playPromiseRef.current.then(() => {
         setIsPlaying(true);
+        playPromiseRef.current = null;
       }).catch(e => {
         console.error("Play failed:", e);
+        setIsPlaying(false);
+        playPromiseRef.current = null;
       });
     }
   };
@@ -145,23 +180,9 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('audio-muted', newMuted.toString());
     
     if (audioRef.current) {
-      if (!newMuted && !isPlaying && isLoaded) {
-        audioRef.current.volume = 0;
-        audioRef.current.play().then(() => {
-          setIsPlaying(true);
-          fadeAudio(volume, 500);
-        }).catch(e => {
-          console.error("Play after unmute failed:", e);
-        });
-      } else if (newMuted && isPlaying) {
-        fadeAudio(0, 300).then(() => {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            setIsPlaying(false);
-          }
-        });
-      } else {
-        audioRef.current.volume = newMuted ? 0 : volume;
+      audioRef.current.muted = newMuted || !userInteracted;
+      if (!newMuted && userInteracted) {
+        audioRef.current.volume = volume;
       }
     }
   };
@@ -176,7 +197,71 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    const handleUserInteraction = () => {
+      if (!userInteracted && audioRef.current) {
+        // If audio isn't loaded yet, wait for it
+        if (!isLoaded && audioRef.current.readyState < 3) {
+          const waitForLoad = () => {
+            if (audioRef.current && audioRef.current.readyState >= 3) {
+              setIsLoaded(true);
+              processInteraction();
+            } else {
+              setTimeout(waitForLoad, 100);
+            }
+          };
+          waitForLoad();
+          return;
+        }
+        
+        processInteraction();
+      }
+    };
+    
+    const processInteraction = () => {
+      if (!userInteracted && audioRef.current) {
+        setUserInteracted(true);
+        
+        if (!isMuted) {
+          // If audio is already playing (muted), just unmute it
+          if (!audioRef.current.paused) {
+            audioRef.current.muted = false;
+          } 
+          // If audio is not playing (muted autoplay failed), start it
+          else {
+            audioRef.current.muted = false;
+            audioRef.current.volume = volume;
+            audioRef.current.play().then(() => {
+              setIsPlaying(true);
+            }).catch(() => {
+              // Handle play failure silently
+            });
+          }
+        }
+        
+        // Remove all event listeners after first interaction
+        document.removeEventListener('click', handleUserInteraction);
+        document.removeEventListener('keydown', handleUserInteraction);
+        document.removeEventListener('scroll', handleUserInteraction);
+        document.removeEventListener('touchstart', handleUserInteraction);
+      }
+    };
+
+    // Listen for any user interaction - only once
+    if (!userInteracted) {
+      document.addEventListener('click', handleUserInteraction, { once: true });
+      document.addEventListener('keydown', handleUserInteraction, { once: true });
+      document.addEventListener('scroll', handleUserInteraction, { once: true });
+      document.addEventListener('touchstart', handleUserInteraction, { once: true });
+    }
+
     return () => {
+      if (!userInteracted) {
+        document.removeEventListener('click', handleUserInteraction);
+        document.removeEventListener('keydown', handleUserInteraction);
+        document.removeEventListener('scroll', handleUserInteraction);
+        document.removeEventListener('touchstart', handleUserInteraction);
+      }
+      
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.removeEventListener('canplaythrough', handleCanPlay);
@@ -184,7 +269,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         audioRef.current.removeEventListener('ended', handleEnded);
       }
     };
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
   return (
     <AudioContext.Provider value={{

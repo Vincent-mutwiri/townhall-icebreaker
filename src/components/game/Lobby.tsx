@@ -202,6 +202,88 @@ export function Lobby({ initialGame }: LobbyProps) {
         return <WinnerScreen winners={winners} />;
       case 'lobby':
       default:
+        if (isHost) {
+          return (
+            <div className="w-full max-w-4xl space-y-6">
+              {/* Host Setup Header */}
+              <Card>
+                <CardHeader className="text-center">
+                  <div className="flex justify-center items-center gap-4 mb-4">
+                    <h2 className="text-2xl font-bold">🎯 Setup Your Game</h2>
+                    <Badge variant="secondary" className="text-xl py-1">
+                      PIN: {gameState.pin}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Prize Pool: <span className="font-bold text-primary">${gameState.prizePool}</span>
+                  </p>
+                </CardHeader>
+              </Card>
+
+              {/* Players in Lobby */}
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-semibold">Players in Lobby</h3>
+                    <Badge variant="outline" className="text-lg">
+                      {gameState.players.length} Players
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Players will see this PIN to join: <span className="font-mono font-bold">{gameState.pin}</span>
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {gameState.players.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground mb-2">No players have joined yet</p>
+                      <p className="text-sm text-muted-foreground">Share the PIN <span className="font-mono font-bold">{gameState.pin}</span> with your players</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {gameState.players.map((player, index) => (
+                        <div key={player._id} className="p-3 bg-green-50 border border-green-200 rounded-lg text-center animate-in fade-in">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-green-600 font-bold">#{index + 1}</span>
+                            <span className="font-medium">{player.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Start Game Controls */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <Button 
+                      size="lg" 
+                      onClick={handleStartGame} 
+                      disabled={gameState.players.length < 1}
+                      className="text-lg px-8 py-3"
+                    >
+                      🚀 Start Game ({gameState.players.length} Players)
+                    </Button>
+                    {gameState.players.length < 1 && (
+                      <p className="text-sm text-muted-foreground mt-3">
+                        Need at least 1 player to start the game
+                      </p>
+                    )}
+                    {gameState.players.length > 0 && (
+                      <p className="text-sm text-muted-foreground mt-3">
+                        Ready to start! All players will see the first question.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        }
+        
+        // Player view
         return (
           <Card className="w-full max-w-2xl">
             <CardHeader className="text-center">
@@ -232,19 +314,9 @@ export function Lobby({ initialGame }: LobbyProps) {
                 ))}
               </div>
 
-              {isHost && gameState.status === 'lobby' && (
-                <div className="mt-8 text-center">
-                  <Button size="lg" onClick={handleStartGame} disabled={gameState.players.length < 1}>
-                    Start Game ({gameState.players.length} Players)
-                  </Button>
-                  {gameState.players.length < 1 && <p className="text-xs text-muted-foreground mt-2">Need at least 1 player to start.</p>}
-                </div>
-              )}
-              {!isHost && (
-                 <div className="mt-8 text-center">
-                   <p className="text-lg text-muted-foreground">Waiting for the host to start the game...</p>
-                 </div>
-              )}
+              <div className="mt-8 text-center">
+                <p className="text-lg text-muted-foreground">Waiting for the host to start the game...</p>
+              </div>
             </CardContent>
           </Card>
         );

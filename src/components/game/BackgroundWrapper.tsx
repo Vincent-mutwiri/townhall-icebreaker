@@ -40,7 +40,7 @@ export function BackgroundWrapper({ children, className = "" }: {
         </>
       )}
       
-      {currentTrack && <AudioControls className="absolute top-4 right-4 z-50" />}
+      {currentTrack && <AudioControls className="absolute top-20 right-4 z-30" />}
       
       <div className="relative z-10">
         {children}
