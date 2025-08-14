@@ -284,28 +284,15 @@ export function Lobby({ initialGame }: LobbyProps) {
           />;
         }
         return (
-          <>
-            {(isHost || isEliminated) && (
-              <div className="mb-4">
-                <LiveStats
-                  pin={gameState.pin}
-                  totalPlayers={gameState.players.filter(p => !p.isEliminated).length}
-                  currentRound={gameState.currentQuestionIndex + 1}
-                  averageResponseTime={roundResults?.averageResponseTime}
-                  fastestResponse={roundResults?.fastestResponse}
-                />
-              </div>
-            )}
-            <QuestionView 
-              question={currentQuestion} 
-              pin={gameState.pin} 
-              onTimeUp={handleTimeUp}
-              isEliminated={isEliminated}
-              currentRound={gameState.currentQuestionIndex + 1}
-              initialPrize={gameState.initialPrize}
-              incrementAmount={gameState.incrementAmount}
-            />
-          </>
+          <QuestionView 
+            question={currentQuestion} 
+            pin={gameState.pin} 
+            onTimeUp={handleTimeUp}
+            isEliminated={isEliminated}
+            currentRound={gameState.currentQuestionIndex + 1}
+            initialPrize={gameState.initialPrize}
+            incrementAmount={gameState.incrementAmount}
+          />
         );
       case 'results':
         // Skip results screen

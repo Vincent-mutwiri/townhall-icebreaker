@@ -83,7 +83,7 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
             )}
           </div>
         </div>
-        <Timer duration={15} onTimeUp={onTimeUp} />
+        <Timer key={question._id} duration={15} onTimeUp={onTimeUp} />
         <CardTitle className="text-center text-2xl md:text-3xl">
           {question.text}
         </CardTitle>
