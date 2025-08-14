@@ -26,10 +26,10 @@ export async function POST(request: Request) {
   try {
     await connectToDatabase();
     const body = await request.json();
-    const { pin, hostSocketId } = body;
+    const { pin, hostSocketId, questionIds } = body;
 
-    if (!pin) {
-      return NextResponse.json({ message: 'Game PIN is required.' }, { status: 400 });
+    if (!pin || !hostSocketId || !questionIds || questionIds.length === 0) {
+      return NextResponse.json({ message: 'Game PIN, Host ID, and questions are required.' }, { status: 400 });
     }
 
     const game = await Game.findOne({ pin });
@@ -46,9 +46,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Game has already started.' }, { status: 400 });
     }
 
-    const questionIds = await getDummyQuestions();
-    
-    // Use findOneAndUpdate to avoid version conflicts
+    // Use the questions provided by the host
     const updatedGame = await Game.findOneAndUpdate(
       { pin },
       { 

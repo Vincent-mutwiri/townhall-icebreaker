@@ -50,8 +50,8 @@ export function CreateGameForm() {
         throw new Error(data.message || 'Failed to create game.');
       }
 
-      // On success, redirect the host to their new game lobby with host parameter
-      router.push(`/game/${data.pin}?host=true`);
+      // On success, redirect the host to the setup page
+      router.push(`/game/${data.pin}/setup`);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
