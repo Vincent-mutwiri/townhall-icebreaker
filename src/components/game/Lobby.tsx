@@ -7,8 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 import { QuestionView } from "./QuestionView";
-import { ResultsScreen } from "./ResultsScreen";
-import { LiveStats } from "./LiveStats";
+
 import { WinnerScreen } from "./WinnerScreen";
 import { HostView } from "./HostView";
 import { NextQuestionModal } from "./NextQuestionModal";
@@ -52,7 +51,7 @@ export function Lobby({ initialGame }: LobbyProps) {
   } | null>(null);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [processedEvents, setProcessedEvents] = useState<Set<string>>(new Set());
-  const [liveStats, setLiveStats] = useState<any>(null);
+
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
@@ -143,18 +142,18 @@ export function Lobby({ initialGame }: LobbyProps) {
       }
     };
 
-    const handleWrongAnswer = (data: { playerName: string }) => {
+    const handleWrongAnswer = () => {
       // No toast - elimination is handled by handlePlayerEliminated
     };
 
-    const handleLiveStats = (stats: any) => {
-      setLiveStats(stats);
+    const handleLiveStats = () => {
+      // Live stats handled elsewhere
     };
 
-    const handleAnswerConfirmed = (data: { playerId: string; isCorrect: boolean }) => {
-      if (data.playerId === playerId) {
+    const handleAnswerConfirmed = ({ playerId: answerPlayerId, isCorrect }: { playerId: string; isCorrect: boolean }) => {
+      if (answerPlayerId === playerId) {
         const playerName = currentPlayer?.name || 'You';
-        if (data.isCorrect) {
+        if (isCorrect) {
           toast.success(`🎉 ${playerName} survived!`, { 
             duration: 3000,
             style: {
@@ -176,8 +175,8 @@ export function Lobby({ initialGame }: LobbyProps) {
       }
     };
 
-    const handleAnswerProgress = (data: { answered: number; total: number }) => {
-      console.log(`${data.answered}/${data.total} players answered`);
+    const handleAnswerProgress = () => {
+      // Answer progress handled elsewhere
     };
 
 
@@ -213,7 +212,7 @@ export function Lobby({ initialGame }: LobbyProps) {
       socket.off('player-update', handlePlayerUpdate);
       socket.off('player-joined', handlePlayerJoined);
     };
-  }, [socket, gameState.pin, processedEvents, view]);
+  }, [socket, gameState.pin, processedEvents, view, playerId, currentPlayer?.name]);
 
 
 
@@ -262,10 +261,7 @@ export function Lobby({ initialGame }: LobbyProps) {
     // Server handles timing automatically now
   };
 
-  const handleResultsTimeUp = () => {
-    setRoundResults(null); // Clear results when time is up
-    // Auto-progression is handled by server, just clear local results
-  };
+
 
   const renderView = () => {
     switch (view) {

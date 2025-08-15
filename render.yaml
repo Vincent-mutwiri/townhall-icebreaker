@@ -12,3 +12,21 @@ services:
           type: web
           name: townhall-icebreaker
           property: port
+      - key: MONGODB_URI
+        sync: false  # Set this in Render dashboard
+      - key: NEXTAUTH_URL
+        value: https://townhall-icebreaker.onrender.com
+      - key: NEXTAUTH_SECRET
+        sync: false  # Set this in Render dashboard
+      - key: AWS_ACCESS_KEY_ID
+        sync: false  # Set this in Render dashboard
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false  # Set this in Render dashboard
+      - key: AWS_S3_REGION
+        value: eu-north-1
+      - key: AWS_S3_BUCKET_NAME
+        value: vincent-bucket2025
+      - key: NEXT_PUBLIC_AWS_S3_BUCKET_NAME
+        value: vincent-bucket2025
+      - key: NEXT_PUBLIC_AWS_S3_REGION
+        value: eu-north-1

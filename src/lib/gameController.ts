@@ -5,7 +5,7 @@ import { Player } from '@/models/Player';
 import connectToDatabase from '@/lib/database';
 
 const ROUND_DURATION_MS = 15000;
-const RESULTS_DURATION_MS = 5000;
+
 
 class GameController {
   private io: Server | null = null;
@@ -370,7 +370,7 @@ class GameController {
     }
   }
 
-  broadcastLiveStats(pin: string, stats: any) {
+  broadcastLiveStats(pin: string, stats: { playersAnswered: number; correctAnswers: number; averageTime: number; fastestPlayer?: { name: string; time: number } }) {
     if (this.io) {
       this.io.to(pin).emit('live-stats', stats);
     }
@@ -381,15 +381,15 @@ class GameController {
     const game = await Game.findOne({ pin }).populate('players').populate('questions');
     if (!game) return;
 
-    const player = game.players.find((p: {id: string}) => p.id === playerId);
+    const player = game.players.find((p: { id: string }) => p.id === playerId);
     if (!player) return;
 
     player.hasAnswered = true;
     await player.save();
 
     // Check if all active players have answered
-    const allActivePlayers = game.players.filter((p: {isEliminated: boolean}) => !p.isEliminated);
-    const allAnswered = allActivePlayers.every((p: {hasAnswered: boolean}) => p.hasAnswered);
+    const allActivePlayers = game.players.filter((p: { isEliminated: boolean }) => !p.isEliminated);
+    const allAnswered = allActivePlayers.every((p: { hasAnswered: boolean }) => p.hasAnswered);
 
     // Broadcast live stats
     await this.broadcastCurrentStats(pin);
@@ -424,7 +424,7 @@ class GameController {
         return;
       }
 
-      const currentQuestion = game.questions[game.currentQuestionIndex] as any;
+      const currentQuestion = game.questions[game.currentQuestionIndex] as { _id: string; correctAnswer: string };
       if (!currentQuestion) {
         console.log(`No current question for game ${pin}`);
         return;
@@ -447,7 +447,7 @@ class GameController {
       console.log(`Answer from ${player.name}: ${answer}, correct: ${isCorrect}, response time: ${responseTime}ms`);
 
       // Prepare the update query
-      const updateQuery: { $set: any; $inc?: { score: number } } = {
+      const updateQuery: { $set: { lastAnswer: { questionId: string; isCorrect: boolean; submittedAt: Date; responseTime: number }; hasAnswered: boolean; isEliminated?: boolean }; $inc?: { score: number } } = {
         $set: { 
           lastAnswer: { 
             questionId: currentQuestion._id, 
@@ -497,7 +497,7 @@ class GameController {
       }
       
       // Check if all active players have answered
-      const [stats] = await Player.aggregate([
+      const [stats]: { _id: string; totalPlayers: number; currentQuestionAnswers: number }[] = await Player.aggregate([
         { $match: { 
           game: game._id, 
           isEliminated: false,

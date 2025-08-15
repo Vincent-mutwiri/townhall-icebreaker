@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useLogoSettings } from "@/context/SettingsProvider";
 
 export function LogoDisplay({ className = "h-12 w-auto" }: { className?: string }) {
@@ -8,9 +9,11 @@ export function LogoDisplay({ className = "h-12 w-auto" }: { className?: string 
   if (!logoUrl) return null;
 
   return (
-    <img 
+    <Image 
       src={logoUrl} 
       alt="Logo" 
+      width={48}
+      height={48}
       className={className}
       onError={(e) => {
         e.currentTarget.style.display = 'none';

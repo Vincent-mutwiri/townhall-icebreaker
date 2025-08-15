@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       if (gameController) {
         // We'll emit this from the client side since we don't have access to io here
       }
-    } catch (error) {
+    } catch {
       console.log('GameController not available for socket emission');
     }
 
@@ -82,8 +82,8 @@ export async function POST(request: Request) {
       playerName: newPlayer.name
     }, { status: 200 });
 
-  } catch (error) {
-    console.error('Error joining game:', error);
+  } catch {
+    console.error('Error joining game');
     return NextResponse.json({ message: 'An unexpected error occurred.' }, { status: 500 });
   }
 }

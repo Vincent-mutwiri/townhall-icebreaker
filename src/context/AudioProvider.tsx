@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 type AudioContextType = {
   isPlaying: boolean;
@@ -73,7 +73,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoaded(false);
   };
 
-  const handleCanPlay = () => {
+  const handleCanPlay = useCallback(() => {
     setIsLoaded(true);
     setIsBuffering(false);
     
@@ -87,7 +87,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         // Muted autoplay failed - will start on user interaction
       });
     }
-  };
+  }, [volume]);
 
   const handleError = () => {
     console.error('Audio loading failed');
@@ -115,7 +115,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
       if (playPromiseRef.current) {
         try {
           await playPromiseRef.current;
-        } catch (e) {
+        } catch {
           // Ignore errors from previous play attempts
         }
         playPromiseRef.current = null;
@@ -269,7 +269,7 @@ export const AudioProvider = ({ children }: { children: React.ReactNode }) => {
         audioRef.current.removeEventListener('ended', handleEnded);
       }
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [handleCanPlay, isLoaded, isMuted, userInteracted, volume]); // Dependencies for useEffect
 
   return (
     <AudioContext.Provider value={{

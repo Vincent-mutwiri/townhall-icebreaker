@@ -21,7 +21,7 @@ type StatsData = {
   fastestPlayer?: { name: string; time: number };
 };
 
-export function LiveStats({ pin, totalPlayers, currentRound, averageResponseTime, fastestResponse }: LiveStatsProps) {
+export function LiveStats({ totalPlayers, currentRound, averageResponseTime, fastestResponse }: LiveStatsProps) {
   const { socket } = useSocket();
   const [liveStats, setLiveStats] = useState<StatsData>({
     playersAnswered: 0,

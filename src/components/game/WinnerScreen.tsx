@@ -57,6 +57,18 @@ export function WinnerScreen({ winners, pin }: WinnerScreenProps) {
       }
     };
 
+    const fetchRoundHistory = async () => {
+      try {
+        const response = await fetch(`/api/game/${pin}`);
+        if (response.ok) {
+          const gameData = await response.json();
+          setRoundHistory(gameData.roundHistory || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch round history:', error);
+      }
+    };
+
     confetti();
     const interval = setInterval(confetti, 2000);
 
@@ -68,21 +80,7 @@ export function WinnerScreen({ winners, pin }: WinnerScreenProps) {
     return () => clearInterval(interval);
   }, [isHost, pin]);
 
-  const fetchRoundHistory = async () => {
-    try {
-      const response = await fetch(`/api/game/${pin}`);
-      if (response.ok) {
-        const gameData = await response.json();
-        setRoundHistory(gameData.roundHistory || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch round history:', error);
-    }
-  };
-
   const topWinner = winners[0];
-  const totalEliminated = roundHistory.reduce((acc, round) => acc + round.eliminated.length, 0);
-  const totalSurvived = winners.length;
 
   if (!isHost) {
     // Player view - hide results

@@ -35,12 +35,10 @@ export function QuestionView({ question, pin, onTimeUp, isEliminated = false, cu
 
   // Check if user is host (only on client side)
   const [isHost, setIsHost] = useState(false);
-  const [playerId, setPlayerId] = useState<string | null>(null);
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setIsHost(new URLSearchParams(window.location.search).get('host') === 'true');
-      setPlayerId(localStorage.getItem(`player-id-${pin}`));
     }
   }, [pin]);
 
