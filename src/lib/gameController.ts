@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { Game } from '@/models/Game';
 import { Player } from '@/models/Player';
 import connectToDatabase from '@/lib/database';
+import { sanitizeForLog, validatePin, validatePlayerId, validateAnswer } from './validation';
 
 const ROUND_DURATION_MS = 15000;
 
@@ -17,7 +18,11 @@ class GameController {
   }
 
   async startGame(pin: string) {
-    console.log(`GameController.startGame called for pin: ${pin}`);
+    if (!validatePin(pin)) {
+      console.log('Invalid pin format');
+      return;
+    }
+    console.log(`GameController.startGame called for pin: ${sanitizeForLog(pin)}`);
     await connectToDatabase();
     const game = await Game.findOne({ pin }).populate('players').populate('questions');
     
@@ -410,6 +415,10 @@ class GameController {
   }
 
   async handlePlayerAnswer(pin: string, playerId: string, answer: string) {
+    if (!validatePin(pin) || !validatePlayerId(playerId) || !validateAnswer(answer)) {
+      console.log('Invalid input parameters');
+      return;
+    }
     try {
       await connectToDatabase();
       
@@ -430,24 +439,27 @@ class GameController {
         return;
       }
 
-      // Find the player and check if they've already answered
-      const player = await Player.findOne({
-        _id: playerId,
-        'lastAnswer.questionId': { $ne: currentQuestion._id } // Only if not already answered
-      });
+      // Find the player
+      const player = await Player.findOne({ _id: playerId });
       
       if (!player) {
-        console.log(`Player ${playerId} not found or already answered`);
+        console.log(`Player ${playerId} not found`);
+        return;
+      }
+      
+      // Check if they've already answered this question
+      if (player.lastAnswer?.questionId?.toString() === currentQuestion._id.toString()) {
+        console.log(`Player ${playerId} already answered this question`);
         return;
       }
       
       const isCorrect = currentQuestion.correctAnswer === answer;
       const responseTime = Date.now() - new Date(game.questionStartTime || 0).getTime();
       
-      console.log(`Answer from ${player.name}: ${answer}, correct: ${isCorrect}, response time: ${responseTime}ms`);
+      console.log(`Answer from ${sanitizeForLog(player.name)}: ${sanitizeForLog(answer)}, correct: ${isCorrect}, response time: ${responseTime}ms`);
 
       // Prepare the update query
-      const updateQuery: { $set: { lastAnswer: { questionId: string; isCorrect: boolean; submittedAt: Date; responseTime: number }; hasAnswered: boolean; isEliminated?: boolean }; $inc?: { score: number } } = {
+      const updateQuery: { $set: { lastAnswer: { questionId: string; isCorrect: boolean; submittedAt: Date; responseTime: number }; hasAnswered: boolean }; $inc?: { score: number } } = {
         $set: { 
           lastAnswer: { 
             questionId: currentQuestion._id, 
@@ -462,9 +474,6 @@ class GameController {
       // Update score if correct
       if (isCorrect) {
         updateQuery.$inc = { score: 100 };
-      } else {
-        // Mark as eliminated for wrong answers
-        updateQuery.$set.isEliminated = true;
       }
 
       // Update the player's answer and score
@@ -487,13 +496,7 @@ class GameController {
           score: updatedPlayer.score || 0
         });
         
-        // Broadcast player elimination if applicable
-        if (!isCorrect) {
-          this.io.to(pin).emit('player-eliminated', { 
-            playerName: updatedPlayer.name,
-            reason: 'wrong answer'
-          });
-        }
+        // Don't broadcast elimination here - let processRound handle it
       }
       
       // Check if all active players have answered
