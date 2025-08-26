@@ -1,7 +1,7 @@
 // src/app/api/upload/presigned-url/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { generatePresignedUploadUrl, validateFile, getFileCategory } from '@/lib/s3-utils';
 
 export async function POST(request: Request) {

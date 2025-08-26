@@ -178,7 +178,7 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                     <Badge variant="outline" className="capitalize">
                       {activeModule.type}
                     </Badge>
-                    {completedModules.includes(activeModule._id) && (
+                    {activeModule.isCompleted && (
                       <Badge variant="secondary" className="text-green-700 bg-green-100">
                         ✓ Completed
                       </Badge>

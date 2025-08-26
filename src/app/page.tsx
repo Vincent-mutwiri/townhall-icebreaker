@@ -1,6 +1,6 @@
 // src/app/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { HeroSection } from '@/components/landing/HeroSection';
 import { FeaturesSection } from '@/components/landing/FeaturesSection';
 import { AnnouncementsSection } from '@/components/landing/AnnouncementsSection';

@@ -1,6 +1,6 @@
 // src/app/announcements/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { UserLayout } from "@/components/layouts/UserLayout";
 import { AnnouncementsList } from "@/components/announcements/AnnouncementsList";
 import connectToDatabase from "@/lib/database";
@@ -17,7 +17,7 @@ async function getPublishedAnnouncements() {
     .populate('authorId', 'name email')
     .lean();
 
-    return announcements.map(announcement => ({
+    return announcements.map((announcement: any) => ({
       _id: announcement._id.toString(),
       title: announcement.title,
       content: announcement.content,

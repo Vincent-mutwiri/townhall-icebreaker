@@ -256,7 +256,7 @@ async function processRoundResults(joinCode: string, io: any) {
     });
 
     // Sort by points earned this round, then by response time
-    playerResults.sort((a, b) => {
+    playerResults.sort((a: any, b: any) => {
       if (a.pointsEarned !== b.pointsEarned) {
         return b.pointsEarned - a.pointsEarned;
       }
@@ -361,7 +361,7 @@ async function finishGame(joinCode: string, io: any) {
         score: player.score,
         correctAnswers: 0 // We'll calculate this properly in a future enhancement
       }))
-      .sort((a, b) => b.score - a.score);
+      .sort((a: any, b: any) => b.score - a.score);
 
     // Import points economy functions
     const { checkPointsCap, checkGameHostEligibility } = await import('./src/lib/pointsEconomy');

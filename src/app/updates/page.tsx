@@ -1,6 +1,6 @@
 // src/app/updates/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { UserLayout } from "@/components/layouts/UserLayout";
 import { UpdatesClient } from "@/components/updates/UpdatesClient";

@@ -200,7 +200,7 @@ export function AnnouncementManager() {
       const result = await uploadFileToS3(file, 'announcements');
 
       if (result.success && result.url) {
-        setFormData(prev => ({ ...prev, coverImage: result.url }));
+        setFormData(prev => ({ ...prev, coverImage: result.url || '' }));
         toast.success('Cover image uploaded successfully!');
       } else {
         throw new Error(result.error || 'Upload failed');

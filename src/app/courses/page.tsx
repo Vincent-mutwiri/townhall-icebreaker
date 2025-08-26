@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Settings, Play, User } from "lucide-react";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { UserLayout } from "@/components/layouts/UserLayout";
 import connectToDatabase from "@/lib/database";
 import { Course } from "@/models/Course";

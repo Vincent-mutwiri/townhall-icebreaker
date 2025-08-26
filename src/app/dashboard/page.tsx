@@ -1,6 +1,6 @@
 // src/app/dashboard/page.tsx
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import connectToDatabase from '@/lib/database';
 import { User } from '@/models/User';

@@ -1,7 +1,7 @@
 // src/app/api/progress/complete-module/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import connectToDatabase from '@/lib/database';
 import { User } from '@/models/User';
 import { Result } from '@/models/Result';
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       courseCompleted,
       totalProgress: completedModules,
       totalModules,
-      pointsCapWarning: pointsCheck.reason || (courseCompleted && coursePointsCheck?.reason)
+      pointsCapWarning: pointsCheck.reason
     });
 
   } catch (error) {

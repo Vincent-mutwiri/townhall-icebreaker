@@ -1,7 +1,7 @@
 // src/app/api/progress/[courseId]/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import connectToDatabase from '@/lib/database';
 import { Progress } from '@/models/Progress';
 
