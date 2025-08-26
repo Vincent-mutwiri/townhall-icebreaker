@@ -9,16 +9,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  MessageSquare, 
-  Heart, 
-  Share2, 
-  Image as ImageIcon, 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  MessageSquare,
+  Heart,
+  Share2,
+  Image as ImageIcon,
   Send,
   Pin,
   Calendar,
   User,
-  Loader2
+  Loader2,
+  MoreHorizontal,
+  Flag,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -63,6 +69,9 @@ export function UpdatesClient() {
   const [newPostText, setNewPostText] = useState('');
   const [newPostTags, setNewPostTags] = useState('');
   const [page, setPage] = useState(1);
+  const [reportingPost, setReportingPost] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
 
   const fetchUpdates = async (pageNum = 1) => {
     setLoading(true);
@@ -168,11 +177,41 @@ export function UpdatesClient() {
     }
   };
 
+  const handleReportPost = async (postId: string) => {
+    if (!reportReason) {
+      toast.error('Please select a reason for reporting');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/updates/${postId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: reportReason,
+          description: reportDescription
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to report post');
+      }
+
+      toast.success('Post reported successfully. Our moderation team will review it.');
+      setReportingPost(null);
+      setReportReason('');
+      setReportDescription('');
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) {
       return 'Just now';
     } else if (diffInHours < 24) {
@@ -325,27 +364,108 @@ export function UpdatesClient() {
                   </div>
 
                   {/* Post Actions */}
-                  <div className="flex items-center gap-4 pt-3 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleUpvote(post._id)}
-                      className={cn(
-                        "flex items-center gap-2",
-                        post.isLiked && "text-red-500 hover:text-red-600"
-                      )}
-                    >
-                      <Heart className={cn(
-                        "h-4 w-4",
-                        post.isLiked && "fill-current"
-                      )} />
-                      {post.upvoteCount > 0 && post.upvoteCount}
-                    </Button>
-                    
-                    <Button variant="ghost" size="sm" disabled>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share
-                    </Button>
+                  <div className="flex items-center justify-between pt-3 border-t">
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleUpvote(post._id)}
+                        className={cn(
+                          "flex items-center gap-2",
+                          post.isLiked && "text-red-500 hover:text-red-600"
+                        )}
+                      >
+                        <Heart className={cn(
+                          "h-4 w-4",
+                          post.isLiked && "fill-current"
+                        )} />
+                        {post.upvoteCount > 0 && post.upvoteCount}
+                      </Button>
+
+                      <Button variant="ghost" size="sm" disabled>
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+
+                    {/* Report Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                              <Flag className="h-4 w-4 mr-2" />
+                              Report Post
+                            </DropdownMenuItem>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Report Post</DialogTitle>
+                              <DialogDescription>
+                                Help us maintain a safe community by reporting inappropriate content.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label htmlFor="reportReason">Reason for reporting</Label>
+                                <Select value={reportReason} onValueChange={setReportReason}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a reason" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="spam">Spam</SelectItem>
+                                    <SelectItem value="harassment">Harassment</SelectItem>
+                                    <SelectItem value="inappropriate_content">Inappropriate Content</SelectItem>
+                                    <SelectItem value="misinformation">Misinformation</SelectItem>
+                                    <SelectItem value="copyright_violation">Copyright Violation</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="reportDescription">Additional details (optional)</Label>
+                                <Textarea
+                                  id="reportDescription"
+                                  placeholder="Provide more context about why you're reporting this post..."
+                                  value={reportDescription}
+                                  onChange={(e) => setReportDescription(e.target.value)}
+                                  maxLength={500}
+                                />
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {reportDescription.length}/500 characters
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setReportReason('');
+                                    setReportDescription('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={() => handleReportPost(post._id)}
+                                  disabled={!reportReason}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  <AlertTriangle className="h-4 w-4 mr-2" />
+                                  Submit Report
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>

@@ -434,6 +434,22 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const updateSetting = async (key: string, value: string) => {
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+      if (res.ok) {
+        setCurrentSettings((prev) => ({ ...prev, [key]: value }));
+        toast.success(`${key} updated successfully!`);
+      }
+    } catch (error) {
+      toast.error('Failed to update setting.');
+    }
+  };
+
   return (
     <>
       <Toaster richColors />
@@ -466,6 +482,12 @@ export default function AdminDashboardPage() {
               <Button variant="outline">
                 <Settings className="mr-2 h-4 w-4" />
                 Content Moderation
+              </Button>
+            </Link>
+            <Link href="/admin/review-queue">
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Review Queue
               </Button>
             </Link>
             <Link href="/">
@@ -533,6 +555,74 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Points Economy Settings */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Points Economy Settings</CardTitle>
+            <CardDescription>Configure point caps and anti-farming measures</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label htmlFor="dailyPointCap">Daily Point Cap</Label>
+                <Input
+                  id="dailyPointCap"
+                  type="number"
+                  placeholder="1000"
+                  value={currentSettings.dailyPointCap || '1000'}
+                  onChange={(e) => setCurrentSettings(prev => ({ ...prev, dailyPointCap: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Maximum points per user per day</p>
+              </div>
+
+              <div>
+                <Label htmlFor="weeklyPointCap">Weekly Point Cap</Label>
+                <Input
+                  id="weeklyPointCap"
+                  type="number"
+                  placeholder="5000"
+                  value={currentSettings.weeklyPointCap || '5000'}
+                  onChange={(e) => setCurrentSettings(prev => ({ ...prev, weeklyPointCap: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Maximum points per user per week</p>
+              </div>
+
+              <div>
+                <Label htmlFor="minPlayersForHostPoints">Min Players for Host Points</Label>
+                <Input
+                  id="minPlayersForHostPoints"
+                  type="number"
+                  placeholder="3"
+                  value={currentSettings.minPlayersForHostPoints || '3'}
+                  onChange={(e) => setCurrentSettings(prev => ({ ...prev, minPlayersForHostPoints: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Minimum players required for host to earn points</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={() => updateSetting('dailyPointCap', currentSettings.dailyPointCap || '1000')}
+                size="sm"
+              >
+                Save Daily Cap
+              </Button>
+              <Button
+                onClick={() => updateSetting('weeklyPointCap', currentSettings.weeklyPointCap || '5000')}
+                size="sm"
+              >
+                Save Weekly Cap
+              </Button>
+              <Button
+                onClick={() => updateSetting('minPlayersForHostPoints', currentSettings.minPlayersForHostPoints || '3')}
+                size="sm"
+              >
+                Save Min Players
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <Card>
