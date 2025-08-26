@@ -7,6 +7,7 @@ import { User } from '@/models/User';
 import { Result } from '@/models/Result';
 import { Course } from '@/models/Course';
 import { Progress } from '@/models/Progress';
+import { checkPointsCap } from '@/lib/pointsEconomy';
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -63,81 +64,98 @@ export async function POST(request: Request) {
       pointsAwarded = 75;
     }
 
-    // 5. Create a Result document to log this event.
+    // 5. Check points economy caps before awarding
+    const pointsCheck = await checkPointsCap(userId, pointsAwarded);
+    const actualPointsAwarded = pointsCheck.actualPoints;
+
+    // 6. Create a Result document to log this event.
     await Result.create({
       userId,
       source: 'course',
       sourceId: courseId,
       score: score || 0,
-      pointsAwarded,
-      details: { 
+      pointsAwarded: actualPointsAwarded,
+      details: {
         moduleId,
         moduleType: module.type,
-        moduleTitle: module.title
+        moduleTitle: module.title,
+        originalPoints: pointsAwarded,
+        capReason: pointsCheck.reason
       },
     });
 
-    // 6. Update the user's total points and stats.
+    // 7. Update the user's total points and stats.
     // Using $inc is atomic and safer for concurrent operations.
     await User.updateOne(
       { _id: userId },
       {
         $inc: {
-          points: pointsAwarded,
+          points: actualPointsAwarded,
           'stats.coursesTaken': 0, // We'll increment this only on full course completion
         },
       }
     );
 
-    // 7. Mark the module as completed in the user's progress.
+    // 8. Mark the module as completed in the user's progress.
     userProgress.completedModules.push(moduleId);
     await userProgress.save();
 
-    // 8. Check if the entire course is completed
+    // 9. Check if the entire course is completed
     const totalModules = course.modules.length;
     const completedModules = userProgress.completedModules.length;
     let courseCompleted = false;
-    
+    let courseCompletionPointsAwarded = 0;
+
     if (completedModules === totalModules) {
       // Award bonus points for course completion
       const courseCompletionBonus = 100;
+      const coursePointsCheck = await checkPointsCap(userId, courseCompletionBonus);
+      courseCompletionPointsAwarded = coursePointsCheck.actualPoints;
+
       await User.updateOne(
         { _id: userId },
         {
           $inc: {
-            points: courseCompletionBonus,
+            points: courseCompletionPointsAwarded,
             'stats.coursesTaken': 1,
+            'stats.coursesCompleted': 1,
           },
         }
       );
-      
+
       // Create a course completion result
       await Result.create({
         userId,
         source: 'course',
         sourceId: courseId,
         score: 100, // Course completion is always 100%
-        pointsAwarded: courseCompletionBonus,
-        details: { 
+        pointsAwarded: courseCompletionPointsAwarded,
+        details: {
           type: 'course_completion',
           courseTitle: course.title,
-          totalModules: totalModules
+          totalModules: totalModules,
+          originalPoints: courseCompletionBonus,
+          capReason: coursePointsCheck.reason
         },
       });
-      
-      pointsAwarded += courseCompletionBonus;
+
       courseCompleted = true;
     }
 
     // 9. (Future) Check for badge awards here.
     // e.g., await checkAndAwardBadges(userId);
 
-    return NextResponse.json({ 
+    const totalPointsAwarded = actualPointsAwarded + courseCompletionPointsAwarded;
+
+    return NextResponse.json({
       message: courseCompleted ? 'Course completed!' : 'Module completed!',
-      pointsAwarded,
+      pointsAwarded: totalPointsAwarded,
+      modulePoints: actualPointsAwarded,
+      courseCompletionPoints: courseCompletionPointsAwarded,
       courseCompleted,
       totalProgress: completedModules,
-      totalModules
+      totalModules,
+      pointsCapWarning: pointsCheck.reason || (courseCompleted && coursePointsCheck?.reason)
     });
 
   } catch (error) {

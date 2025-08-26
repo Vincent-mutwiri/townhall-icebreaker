@@ -363,21 +363,33 @@ async function finishGame(joinCode: string, io: any) {
       }))
       .sort((a, b) => b.score - a.score);
 
+    // Import points economy functions
+    const { checkPointsCap, checkGameHostEligibility } = await import('./src/lib/pointsEconomy');
+
+    // Check if host should get points (anti-farming measure)
+    const hostEligibility = await checkGameHostEligibility(hostedGame.players.length);
+
     // Award points to all players and create Result documents
     for (const player of hostedGame.players) {
       if (player.score > 0) {
+        // Check points caps before awarding
+        const pointsCheck = await checkPointsCap(player.userId, player.score);
+        const actualPointsAwarded = pointsCheck.actualPoints;
+
         // Create result document
         await Result.create({
           userId: player.userId,
           source: 'game',
           sourceId: hostedGame._id,
           score: Math.round((player.score / (hostedGame.templateId.questions.length * (hostedGame.templateId.rules?.basePoints || 100))) * 100),
-          pointsAwarded: player.score,
+          pointsAwarded: actualPointsAwarded,
           details: {
             gameTitle: hostedGame.templateId.title,
             joinCode: hostedGame.joinCode,
             finalRank: finalLeaderboard.findIndex((p: any) => p.userId.toString() === player.userId.toString()) + 1,
-            totalPlayers: hostedGame.players.length
+            totalPlayers: hostedGame.players.length,
+            originalPoints: player.score,
+            capReason: pointsCheck.reason
           }
         });
 
@@ -386,8 +398,45 @@ async function finishGame(joinCode: string, io: any) {
           { _id: player.userId },
           {
             $inc: {
-              points: player.score,
+              points: actualPointsAwarded,
               'stats.gamesPlayed': 1
+            }
+          }
+        );
+      }
+    }
+
+    // Award host points if eligible
+    if (hostEligibility.canAwardHostPoints) {
+      const hostPoints = 50; // Base host points
+      const hostPointsCheck = await checkPointsCap(hostedGame.hostId, hostPoints);
+      const actualHostPoints = hostPointsCheck.actualPoints;
+
+      if (actualHostPoints > 0) {
+        // Create result document for host
+        await Result.create({
+          userId: hostedGame.hostId,
+          source: 'game',
+          sourceId: hostedGame._id,
+          score: 100, // Host gets 100% for hosting
+          pointsAwarded: actualHostPoints,
+          details: {
+            type: 'host_bonus',
+            gameTitle: hostedGame.templateId.title,
+            joinCode: hostedGame.joinCode,
+            totalPlayers: hostedGame.players.length,
+            originalPoints: hostPoints,
+            capReason: hostPointsCheck.reason
+          }
+        });
+
+        // Update host points
+        await User.updateOne(
+          { _id: hostedGame.hostId },
+          {
+            $inc: {
+              points: actualHostPoints,
+              'stats.gamesHosted': 1
             }
           }
         );

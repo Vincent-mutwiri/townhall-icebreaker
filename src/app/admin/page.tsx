@@ -443,12 +443,38 @@ export default function AdminDashboardPage() {
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground">Manage global settings and monitor system status</p>
           </div>
-          <Link href="/">
-            <Button variant="outline">
-              <Home className="mr-2 h-4 w-4" />
-              Back to Home
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/admin/badges">
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Badge Management
+              </Button>
+            </Link>
+            <Link href="/admin/users">
+              <Button variant="outline">
+                <Database className="mr-2 h-4 w-4" />
+                User Management
+              </Button>
+            </Link>
+            <Link href="/admin/analytics">
+              <Button variant="outline">
+                <Grid className="mr-2 h-4 w-4" />
+                Analytics
+              </Button>
+            </Link>
+            <Link href="/admin/moderation">
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Content Moderation
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline">
+                <Home className="mr-2 h-4 w-4" />
+                Back to Home
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* System Health Alert */}

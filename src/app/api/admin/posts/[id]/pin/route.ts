@@ -1,0 +1,39 @@
+// src/app/api/admin/posts/[id]/pin/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import connectToDatabase from '@/lib/database';
+import { UpdatePost } from '@/models/UpdatePost';
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || (session.user as any).role !== 'admin') {
+    return NextResponse.json({ message: 'Not authorized' }, { status: 403 });
+  }
+
+  try {
+    await connectToDatabase();
+    const { id } = await params;
+    const { isPinned } = await request.json();
+
+    // Find and update the post
+    const updatedPost = await UpdatePost.findByIdAndUpdate(
+      id,
+      { isPinned },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      return NextResponse.json({ message: 'Post not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ 
+      message: 'Post pin status updated successfully',
+      post: updatedPost
+    });
+
+  } catch (error) {
+    console.error('Error updating post pin status:', error);
+    return NextResponse.json({ message: 'An unexpected error occurred.' }, { status: 500 });
+  }
+}
