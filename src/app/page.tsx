@@ -1,70 +1,100 @@
 // src/app/page.tsx
 "use client";
 
-import { useState } from "react";
-import { CreateGameForm } from "@/components/game/CreateGameForm";
-import { JoinGameForm } from "@/components/game/JoinGameForm";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { BackgroundWrapper } from "@/components/game/BackgroundWrapper";
-import { LogoDisplay } from "@/components/game/LogoDisplay";
-import { Settings, User, LogOut } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Settings, User, LogOut, BookOpen, Gamepad2, Trophy, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "next-auth/react";
 
 export default function Home() {
-  const [showHostCard, setShowHostCard] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
 
   return (
-    <BackgroundWrapper className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <main className="flex min-h-screen w-full flex-col items-center justify-center p-4">
         <div className="text-center mb-10">
-          <div className="mb-6 flex justify-center">
-            <LogoDisplay className="h-16 w-auto max-w-xs" />
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight lg:text-6xl text-white drop-shadow-lg">
+          <h1 className="text-4xl font-bold tracking-tight lg:text-6xl">
             Townhall Icebreaker
           </h1>
-          <p className="text-lg text-white/90 mt-2 drop-shadow">
-            The real-time trivia game for your whole team.
+          <p className="text-lg text-muted-foreground mt-2">
+            Learn, Play, and Grow Together
           </p>
         </div>
 
-        <div className="flex flex-col items-center gap-8">
-          {showHostCard ? (
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
-                <CreateGameForm />
-              </div>
-              <div className="flex items-center h-full">
-                <Separator orientation="vertical" className="hidden md:block h-20 bg-white/50" />
-                <div className="md:hidden text-white font-semibold">OR</div>
-                <Separator orientation="horizontal" className="block md:hidden w-20 bg-white/50" />
-              </div>
-              <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
-                <JoinGameForm />
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
-              <JoinGameForm />
-            </div>
-          )}
+        {/* Feature Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+                Courses
+              </CardTitle>
+              <CardDescription>
+                Interactive learning modules and educational content
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/courses">
+                <Button className="w-full">Explore Courses</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gamepad2 className="h-5 w-5 text-green-600" />
+                Games
+              </CardTitle>
+              <CardDescription>
+                Create and play educational games with your team
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/games">
+                <Button className="w-full">Play Games</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-600" />
+                Leaderboard
+              </CardTitle>
+              <CardDescription>
+                See how you rank against other learners
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/leaderboard">
+                <Button className="w-full">View Rankings</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-purple-600" />
+                Updates
+              </CardTitle>
+              <CardDescription>
+                Latest news and community updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/updates">
+                <Button className="w-full">Read Updates</Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
-        
-        <div className="absolute top-4 left-4">
-          <Button 
-            onClick={() => setShowHostCard(!showHostCard)}
-            variant="outline" 
-            size="sm" 
-            className="bg-white/90 backdrop-blur-sm"
-          >
-            {showHostCard ? 'Hide Host' : 'Host'}
-          </Button>
-        </div>
-        
+
+        {/* Navigation */}
         <div className="absolute top-4 right-4 flex gap-2">
           {isAuthenticated ? (
             <>
@@ -96,6 +126,13 @@ export default function Home() {
               </Link>
             </>
           )}
+          {isAuthenticated && (
+            <Link href="/dashboard">
+              <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
+                Dashboard
+              </Button>
+            </Link>
+          )}
           <Link href="/admin">
             <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
               <Settings className="mr-2 h-4 w-4" />
@@ -104,6 +141,6 @@ export default function Home() {
           </Link>
         </div>
       </main>
-    </BackgroundWrapper>
+    </div>
   );
 }

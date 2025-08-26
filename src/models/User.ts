@@ -5,47 +5,78 @@ const { Schema, model, models, Document } = pkg;
 
 export interface IUser extends Document {
   email: string;
-  password: string;
+  password?: string;
   name: string;
-  role: 'user' | 'admin';
-  badges: pkg.Schema.Types.ObjectId[];
+  role: 'teacher' | 'admin';
+  avatar?: string;
+  points: number;
+  level: number;
+  badges: {
+    badgeId: pkg.Schema.Types.ObjectId;
+    awardedAt: Date;
+  }[];
+  stats: {
+    coursesTaken: number;
+    gamesCreated: number;
+    gamesHosted: number;
+    gamesPlayed: number;
+    gamesWon: number;
+  };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const UserSchema = new Schema({
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true, 
+  email: {
+    type: String,
+    required: true,
+    unique: true,
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
-  password: { 
-    type: String, 
+  password: {
+    type: String,
     required: true,
     minlength: [6, 'Password must be at least 6 characters long']
   },
-  name: { 
-    type: String, 
+  name: {
+    type: String,
     required: true,
     trim: true,
     minlength: [2, 'Name must be at least 2 characters long'],
     maxlength: [50, 'Name cannot exceed 50 characters']
   },
-  role: { 
-    type: String, 
-    enum: ['user', 'admin'], 
-    default: 'user' 
+  role: {
+    type: String,
+    enum: ['teacher', 'admin'],
+    default: 'teacher'
   },
-  badges: [{ 
-    type: pkg.Schema.Types.ObjectId, 
-    ref: 'Badge' 
-  }]
-}, { 
-  timestamps: true 
+  avatar: {
+    type: String
+  },
+  points: {
+    type: Number,
+    default: 0
+  },
+  level: {
+    type: Number,
+    default: 1
+  },
+  badges: [{
+    badgeId: { type: pkg.Schema.Types.ObjectId, ref: 'Badge' },
+    awardedAt: { type: Date, default: Date.now },
+  }],
+  stats: {
+    coursesTaken: { type: Number, default: 0 },
+    gamesCreated: { type: Number, default: 0 },
+    gamesHosted: { type: Number, default: 0 },
+    gamesPlayed: { type: Number, default: 0 },
+    gamesWon: { type: Number, default: 0 },
+  },
+}, {
+  timestamps: true
 });
 
 // Hash password before saving
