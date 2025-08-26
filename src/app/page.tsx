@@ -8,11 +8,14 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { BackgroundWrapper } from "@/components/game/BackgroundWrapper";
 import { LogoDisplay } from "@/components/game/LogoDisplay";
-import { Settings } from "lucide-react";
+import { Settings, User, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { signOut } from "next-auth/react";
 
 export default function Home() {
   const [showHostCard, setShowHostCard] = useState(false);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   return (
     <BackgroundWrapper className="min-h-screen">
@@ -62,7 +65,37 @@ export default function Home() {
           </Button>
         </div>
         
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 flex gap-2">
+          {isAuthenticated ? (
+            <>
+              <div className="bg-white/90 backdrop-blur-sm rounded px-3 py-2 text-sm font-medium">
+                Welcome, {user?.name}!
+              </div>
+              <Button
+                onClick={() => signOut()}
+                variant="outline"
+                size="sm"
+                className="bg-white/90 backdrop-blur-sm"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
+                  <User className="mr-2 h-4 w-4" />
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
           <Link href="/admin">
             <Button variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm">
               <Settings className="mr-2 h-4 w-4" />

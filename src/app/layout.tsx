@@ -5,6 +5,7 @@ import "./globals.css";
 import { SocketProvider } from "@/context/SocketProvider";
 import { SettingsProvider } from "@/context/SettingsProvider";
 import { AudioProvider } from "@/context/AudioProvider";
+import { AuthProvider } from "@/context/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,11 +25,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SettingsProvider>
-          <AudioProvider>
-            <SocketProvider>{children}</SocketProvider>
-          </AudioProvider>
-        </SettingsProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <AudioProvider>
+              <SocketProvider>{children}</SocketProvider>
+            </AudioProvider>
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );
