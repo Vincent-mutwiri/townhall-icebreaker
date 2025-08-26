@@ -2,8 +2,6 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
-import { gameController } from './src/lib/gameController';
-import './src/lib/gameCleanup'; // Start cleanup process
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -35,8 +33,6 @@ app.prepare().then(() => {
     pingInterval: 25000
   });
 
-  gameController.setIO(io);
-
   io.on('connection', (socket) => {
     console.log('New client connected', socket.id);
 
@@ -45,13 +41,10 @@ app.prepare().then(() => {
       console.log(`Socket ${socket.id} joined room ${pin}`);
     });
 
+    // Legacy game events - can be removed or updated for new game system
     socket.on('start-game', async (pin) => {
       console.log(`WebSocket: Game start event received for pin: ${pin}`);
-      try {
-        await gameController.startGame(pin);
-      } catch (error) {
-        console.error('Socket start game error:', error);
-      }
+      // TODO: Implement new game system
     });
 
     socket.on('player-joined', (pin) => {
@@ -59,12 +52,8 @@ app.prepare().then(() => {
     });
 
     socket.on('submit-answer', async ({ pin, playerId, answer }) => {
-      try {
-        await gameController.handlePlayerAnswer(pin, playerId, answer);
-      } catch (error) {
-        console.error('Socket answer error:', error);
-        socket.emit('answer-error', { message: 'Failed to process answer' });
-      }
+      console.log(`WebSocket: Answer submitted for pin: ${pin}`);
+      // TODO: Implement new game system
     });
 
     socket.on('disconnect', () => {

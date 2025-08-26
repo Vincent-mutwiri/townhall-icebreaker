@@ -14,6 +14,8 @@ import { toast, Toaster } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ArrowLeft, Save, Plus, FileText, HelpCircle, Image, Video, ClipboardList, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { TextModuleEditor } from "./module-editors/TextModuleEditor";
+import { QuizModuleEditor } from "./module-editors/QuizModuleEditor";
 
 // Define a type for our course state
 type CourseState = {
@@ -239,7 +241,7 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
                     <p>No modules yet. Add your first module above.</p>
                   </div>
                 ) : (
-                  <Accordion type="single" collapsible className="w-full">
+                  <Accordion type="multiple" className="w-full">
                     {course.modules.map((module, index) => (
                       <AccordionItem key={module._id || module.tempId || index} value={`item-${index}`}>
                         <AccordionTrigger className="hover:no-underline">
@@ -268,24 +270,26 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
                             
                             {/* Module-specific content editor */}
                             {module.type === 'text' && (
-                              <div className="space-y-2">
-                                <Label>Content</Label>
-                                <Textarea
-                                  value={module.content || ''}
-                                  onChange={(e) => updateModule(index, { content: e.target.value })}
-                                  placeholder="Enter text content..."
-                                  rows={6}
-                                />
-                              </div>
+                              <TextModuleEditor
+                                content={module.content}
+                                onContentChange={(newContent) => updateModule(index, { content: newContent })}
+                              />
                             )}
-                            
+
+                            {module.type === 'quiz' && (
+                              <QuizModuleEditor
+                                content={module.content || { questions: [] }}
+                                onContentChange={(newContent) => updateModule(index, { content: newContent })}
+                              />
+                            )}
+
                             {(module.type === 'image' || module.type === 'video') && (
                               <div className="space-y-4">
                                 <div className="space-y-2">
                                   <Label>URL</Label>
                                   <Input
                                     value={module.content?.url || ''}
-                                    onChange={(e) => updateModule(index, { 
+                                    onChange={(e) => updateModule(index, {
                                       content: { ...module.content, url: e.target.value }
                                     })}
                                     placeholder={`Enter ${module.type} URL...`}
@@ -295,23 +299,12 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
                                   <Label>Description</Label>
                                   <Textarea
                                     value={module.content?.description || ''}
-                                    onChange={(e) => updateModule(index, { 
+                                    onChange={(e) => updateModule(index, {
                                       content: { ...module.content, description: e.target.value }
                                     })}
                                     placeholder="Describe this content..."
                                     rows={3}
                                   />
-                                </div>
-                              </div>
-                            )}
-                            
-                            {module.type === 'quiz' && (
-                              <div className="space-y-2">
-                                <Label>Quiz Questions</Label>
-                                <div className="p-4 border rounded-lg bg-muted/50">
-                                  <p className="text-sm text-muted-foreground">
-                                    Quiz builder coming soon! For now, you can add the quiz structure manually.
-                                  </p>
                                 </div>
                               </div>
                             )}
