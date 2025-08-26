@@ -9,22 +9,28 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save, 
-  X, 
-  Eye, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Save,
+  X,
+  Eye,
   EyeOff,
   Calendar,
   User,
   Megaphone,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Loader2,
+  Search,
+  Filter,
+  Upload
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import Image from "next/image";
+import { uploadFileToS3 } from "@/lib/s3-utils";
 
 interface AnnouncementPost {
   _id: string;
@@ -46,7 +52,11 @@ export function AnnouncementManager() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'published'>('all');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -77,19 +87,21 @@ export function AnnouncementManager() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error('Title and content are required');
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      const url = editingId 
+      const url = editingId
         ? `/api/admin/announcements/${editingId}`
         : '/api/admin/announcements';
-      
+
       const method = editingId ? 'PATCH' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -98,9 +110,9 @@ export function AnnouncementManager() {
 
       if (response.ok) {
         const savedPost = await response.json();
-        
+
         if (editingId) {
-          setAnnouncements(prev => 
+          setAnnouncements(prev =>
             prev.map(post => post._id === editingId ? savedPost : post)
           );
           toast.success('Announcement updated successfully');
@@ -108,7 +120,7 @@ export function AnnouncementManager() {
           setAnnouncements(prev => [savedPost, ...prev]);
           toast.success('Announcement created successfully');
         }
-        
+
         resetForm();
       } else {
         const error = await response.json();
@@ -116,6 +128,8 @@ export function AnnouncementManager() {
       }
     } catch (error) {
       toast.error('Error saving announcement');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -163,6 +177,44 @@ export function AnnouncementManager() {
     setShowForm(false);
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+
+    try {
+      const result = await uploadFileToS3(file, 'announcements');
+
+      if (result.success && result.url) {
+        setFormData(prev => ({ ...prev, coverImage: result.url }));
+        toast.success('Cover image uploaded successfully!');
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      toast.error(`Upload failed: ${errorMessage}`);
+    } finally {
+      setIsUploadingImage(false);
+      // Clear the input so the same file can be selected again
+      event.target.value = '';
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -173,40 +225,111 @@ export function AnnouncementManager() {
     });
   };
 
+  // Filter and search logic
+  const filteredAnnouncements = announcements.filter(post => {
+    const matchesSearch = searchTerm === '' ||
+      post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.content.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = filterStatus === 'all' || post.status === filterStatus;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: announcements.length,
+    published: announcements.filter(p => p.status === 'published').length,
+    draft: announcements.filter(p => p.status === 'draft').length
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto p-8">
-        <div className="text-center">Loading announcements...</div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading announcements...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
-            <Megaphone className="h-8 w-8 text-blue-600" />
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            <Megaphone className="h-6 w-6 text-blue-600" />
             Landing Page Announcements
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Manage announcements that appear on the landing page
           </p>
+
+          {/* Stats */}
+          <div className="flex items-center gap-4 mt-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                Total: {stats.total}
+              </Badge>
+              <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                Published: {stats.published}
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                Draft: {stats.draft}
+              </Badge>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="flex items-center gap-2"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            New Announcement
+            <Plus className="h-4 w-4" />
+            {showForm ? 'Cancel' : 'New Announcement'}
           </Button>
-          <Link href="/admin">
-            <Button variant="outline">Back to Admin</Button>
-          </Link>
         </div>
       </div>
+
+      {/* Search and Filter Controls */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search announcements..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {(searchTerm || filterStatus !== 'all') && (
+            <div className="mt-3 text-sm text-muted-foreground">
+              Showing {filteredAnnouncements.length} of {announcements.length} announcements
+              {searchTerm && ` matching "${searchTerm}"`}
+              {filterStatus !== 'all' && ` with status "${filterStatus}"`}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create/Edit Form */}
       {showForm && (
@@ -256,14 +379,80 @@ export function AnnouncementManager() {
               </div>
 
               <div>
-                <Label htmlFor="coverImage">Cover Image URL (Optional)</Label>
-                <Input
-                  id="coverImage"
-                  type="url"
-                  value={formData.coverImage}
-                  onChange={(e) => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
-                />
+                <Label htmlFor="coverImage">Cover Image</Label>
+                <div className="space-y-3">
+                  <Input
+                    id="coverImage"
+                    type="url"
+                    value={formData.coverImage}
+                    onChange={(e) => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
+                    placeholder="https://example.com/image.jpg or upload a new image"
+                  />
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">or</span>
+                    <div>
+                      <input
+                        ref={(input) => {
+                          if (input) {
+                            (window as any).imageUploadInput = input;
+                          }
+                        }}
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                        onChange={handleImageUpload}
+                        disabled={isUploadingImage}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingImage}
+                        onClick={() => {
+                          const input = (window as any).imageUploadInput;
+                          if (input) input.click();
+                        }}
+                      >
+                        {isUploadingImage ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Image
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {formData.coverImage && (
+                    <div className="relative w-full max-w-md">
+                      <Image
+                        src={formData.coverImage}
+                        alt="Cover image preview"
+                        width={400}
+                        height={200}
+                        className="rounded-lg object-cover border"
+                        onError={() => {
+                          toast.error('Failed to load image preview');
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => setFormData(prev => ({ ...prev, coverImage: '' }))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -285,11 +474,25 @@ export function AnnouncementManager() {
               </div>
 
               <div className="flex gap-2">
-                <Button type="submit">
-                  <Save className="h-4 w-4 mr-2" />
-                  {editingId ? 'Update' : 'Create'} Announcement
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {editingId ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      {editingId ? 'Update' : 'Create'} Announcement
+                    </>
+                  )}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  disabled={isSubmitting}
+                >
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
@@ -302,9 +505,15 @@ export function AnnouncementManager() {
       {/* Announcements List */}
       <Card>
         <CardHeader>
-          <CardTitle>All Announcements ({announcements.length})</CardTitle>
+          <CardTitle>
+            {filterStatus === 'all' ? 'All Announcements' : `${filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)} Announcements`}
+            ({filteredAnnouncements.length})
+          </CardTitle>
           <CardDescription>
-            Manage your landing page announcements
+            {filteredAnnouncements.length !== announcements.length
+              ? `Showing ${filteredAnnouncements.length} of ${announcements.length} announcements`
+              : 'Manage your landing page announcements'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -312,16 +521,31 @@ export function AnnouncementManager() {
             <div className="text-center py-12">
               <Megaphone className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No announcements yet</p>
-              <Button 
+              <Button
                 onClick={() => setShowForm(true)}
                 className="mt-4"
               >
                 Create Your First Announcement
               </Button>
             </div>
+          ) : filteredAnnouncements.length === 0 ? (
+            <div className="text-center py-12">
+              <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No announcements match your search criteria</p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterStatus('all');
+                }}
+                className="mt-4"
+              >
+                Clear Filters
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
-              {announcements.map((post) => (
+              {filteredAnnouncements.map((post) => (
                 <div
                   key={post._id}
                   className="border rounded-lg p-6 hover:shadow-md transition-shadow"

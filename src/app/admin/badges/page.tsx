@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/database";
 import { Badge } from "@/models/Badge";
 import { BadgeManagement } from "@/components/admin/BadgeManagement";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 async function getBadges() {
   await connectToDatabase();
@@ -21,5 +22,9 @@ export default async function AdminBadgesPage() {
 
   const badges = await getBadges();
 
-  return <BadgeManagement badges={badges} />;
+  return (
+    <AdminLayout>
+      <BadgeManagement badges={badges} />
+    </AdminLayout>
+  );
 }

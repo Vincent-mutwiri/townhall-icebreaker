@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/database";
 import { ReportedContent } from "@/models/ReportedContent";
 import { ReviewQueue } from "@/components/admin/ReviewQueue";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 async function getReportedContent() {
   await connectToDatabase();
@@ -103,5 +104,9 @@ export default async function AdminReviewQueuePage() {
   const reports = await getReportedContent();
   const stats = await getReviewStats();
 
-  return <ReviewQueue reports={reports} stats={stats} />;
+  return (
+    <AdminLayout>
+      <ReviewQueue reports={reports} stats={stats} />
+    </AdminLayout>
+  );
 }

@@ -1,20 +1,21 @@
-// src/app/admin/announcements/page.tsx
+// src/app/admin/media/page.tsx
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { AdminLayout } from "@/components/layouts/AdminLayout";
-import { AnnouncementManager } from "@/components/admin/AnnouncementManager";
+import { MediaManagementClient } from "@/components/admin/MediaManagementClient";
 
-export default async function AdminAnnouncementsPage() {
+export default async function MediaManagementPage() {
   const session = await getServerSession(authOptions);
+  const user = session?.user as any;
 
-  if (!session?.user || (session.user as any).role !== 'admin') {
-    redirect('/dashboard');
+  if (user?.role !== 'admin') {
+    redirect('/');
   }
 
   return (
     <AdminLayout>
-      <AnnouncementManager />
+      <MediaManagementClient />
     </AdminLayout>
   );
 }

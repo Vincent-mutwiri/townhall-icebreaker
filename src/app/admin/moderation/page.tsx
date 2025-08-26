@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/database";
 import { UpdatePost } from "@/models/UpdatePost";
 import { ContentModeration } from "@/components/admin/ContentModeration";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 async function getPostsForModeration() {
   await connectToDatabase();
@@ -79,5 +80,9 @@ export default async function AdminModerationPage() {
   const posts = await getPostsForModeration();
   const stats = await getModerationStats();
 
-  return <ContentModeration posts={posts} stats={stats} />;
+  return (
+    <AdminLayout>
+      <ContentModeration posts={posts} stats={stats} />
+    </AdminLayout>
+  );
 }

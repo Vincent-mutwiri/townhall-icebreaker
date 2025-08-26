@@ -4,17 +4,18 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { 
-  LogIn, 
-  LogOut, 
-  User, 
-  Shield, 
-  Menu, 
+import {
+  LogIn,
+  LogOut,
+  User,
+  Shield,
+  Menu,
   X,
   BookOpen,
   Gamepad2,
   Trophy,
-  MessageSquare
+  MessageSquare,
+  Megaphone
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ export function Header() {
     { name: 'Games', href: '/games', icon: Gamepad2 },
     { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { name: 'Community', href: '/updates', icon: MessageSquare },
+    { name: 'Announcements', href: '/announcements', icon: Megaphone },
   ];
 
   return (

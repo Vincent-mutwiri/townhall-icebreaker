@@ -29,6 +29,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { uploadFileToS3 } from "@/lib/s3-utils";
+import Image from "next/image";
 
 interface UpdatePost {
   _id: string;
@@ -68,6 +70,8 @@ export function UpdatesClient() {
   const [posting, setPosting] = useState(false);
   const [newPostText, setNewPostText] = useState('');
   const [newPostTags, setNewPostTags] = useState('');
+  const [newPostMedia, setNewPostMedia] = useState<string[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [page, setPage] = useState(1);
   const [reportingPost, setReportingPost] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('');
@@ -96,6 +100,64 @@ export function UpdatesClient() {
     fetchUpdates();
   }, []);
 
+  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate file types
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
+
+    if (invalidFiles.length > 0) {
+      toast.error('Please select only image files (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    // Validate file sizes (5MB limit per file)
+    const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      toast.error('Each image must be less than 5MB');
+      return;
+    }
+
+    // Limit to 4 images total
+    if (newPostMedia.length + files.length > 4) {
+      toast.error('You can upload a maximum of 4 images per post');
+      return;
+    }
+
+    setUploadingMedia(true);
+
+    try {
+      const uploadPromises = files.map(file => uploadFileToS3(file, 'updates'));
+      const results = await Promise.all(uploadPromises);
+
+      const successfulUploads = results
+        .filter(result => result.success && result.url)
+        .map(result => result.url!);
+
+      if (successfulUploads.length > 0) {
+        setNewPostMedia(prev => [...prev, ...successfulUploads]);
+        toast.success(`${successfulUploads.length} image(s) uploaded successfully!`);
+      }
+
+      const failedUploads = results.filter(result => !result.success);
+      if (failedUploads.length > 0) {
+        toast.error(`${failedUploads.length} image(s) failed to upload`);
+      }
+    } catch (error) {
+      toast.error('Failed to upload images');
+    } finally {
+      setUploadingMedia(false);
+      // Clear the input so the same files can be selected again
+      event.target.value = '';
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setNewPostMedia(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -117,7 +179,7 @@ export function UpdatesClient() {
         body: JSON.stringify({
           text: newPostText,
           tags,
-          media: [] // TODO: Add media upload functionality
+          media: newPostMedia
         }),
       });
 
@@ -132,6 +194,7 @@ export function UpdatesClient() {
       // Clear form
       setNewPostText('');
       setNewPostTags('');
+      setNewPostMedia([]);
       
       // Refresh the feed
       fetchUpdates(1);
@@ -271,11 +334,72 @@ export function UpdatesClient() {
               />
             </div>
 
+            {/* Media Upload Preview */}
+            {newPostMedia.length > 0 && (
+              <div className="space-y-2">
+                <Label>Uploaded Images</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {newPostMedia.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <div className="relative w-full h-24 rounded-lg overflow-hidden border">
+                        <Image
+                          src={url}
+                          alt={`Upload ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeMedia(index)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between items-center">
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" disabled>
-                  <ImageIcon className="h-4 w-4 mr-2" />
-                  Add Media (Coming Soon)
+                <input
+                  ref={(input) => {
+                    if (input) {
+                      (window as any).updateMediaUploadInput = input;
+                    }
+                  }}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={handleMediaUpload}
+                  disabled={uploadingMedia}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingMedia || newPostMedia.length >= 4}
+                  onClick={() => {
+                    const input = (window as any).updateMediaUploadInput;
+                    if (input) input.click();
+                  }}
+                >
+                  {uploadingMedia ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-4 w-4 mr-2" />
+                      Add Photos ({newPostMedia.length}/4)
+                    </>
+                  )}
                 </Button>
               </div>
               
@@ -350,7 +474,39 @@ export function UpdatesClient() {
                   {/* Post Content */}
                   <div className="mb-4">
                     <p className="text-gray-800 whitespace-pre-wrap">{post.text}</p>
-                    
+
+                    {/* Media */}
+                    {post.media && post.media.length > 0 && (
+                      <div className="mt-4">
+                        <div className={cn(
+                          "grid gap-2 rounded-lg overflow-hidden",
+                          post.media.length === 1 && "grid-cols-1",
+                          post.media.length === 2 && "grid-cols-2",
+                          post.media.length === 3 && "grid-cols-2",
+                          post.media.length === 4 && "grid-cols-2"
+                        )}>
+                          {post.media.map((url, index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                "relative cursor-pointer hover:opacity-90 transition-opacity",
+                                post.media.length === 3 && index === 0 && "col-span-2",
+                                "h-48 md:h-64"
+                              )}
+                              onClick={() => window.open(url, '_blank')}
+                            >
+                              <Image
+                                src={url}
+                                alt={`Post image ${index + 1}`}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Tags */}
                     {post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-3">

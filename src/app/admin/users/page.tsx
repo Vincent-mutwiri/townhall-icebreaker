@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/database";
 import { User } from "@/models/User";
 import { UserManagement } from "@/components/admin/UserManagement";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 async function getUsers() {
   await connectToDatabase();
@@ -44,5 +45,9 @@ export default async function AdminUsersPage() {
   const users = await getUsers();
   const stats = await getUserStats();
 
-  return <UserManagement users={users} stats={stats} />;
+  return (
+    <AdminLayout>
+      <UserManagement users={users} stats={stats} />
+    </AdminLayout>
+  );
 }

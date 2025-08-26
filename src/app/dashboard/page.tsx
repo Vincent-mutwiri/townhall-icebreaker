@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import connectToDatabase from '@/lib/database';
 import { User } from '@/models/User';
 import { Badge } from '@/models/Badge';
+import { UserLayout } from '@/components/layouts/UserLayout';
 import { EnhancedDashboard } from '@/components/dashboard/EnhancedDashboard';
 
 async function getUserData(userId: string) {
@@ -30,5 +31,9 @@ export default async function DashboardPage() {
   const userId = (session.user as any).id;
   const userData = await getUserData(userId);
 
-  return <EnhancedDashboard userData={userData} session={session} />;
+  return (
+    <UserLayout>
+      <EnhancedDashboard userData={userData} session={session} />
+    </UserLayout>
+  );
 }

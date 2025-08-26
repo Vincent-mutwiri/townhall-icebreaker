@@ -9,6 +9,7 @@ import { UpdatePost } from "@/models/UpdatePost";
 import { HostedGame } from "@/models/HostedGame";
 import { Course } from "@/models/Course";
 import { PlatformAnalytics } from "@/components/admin/PlatformAnalytics";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 async function getAnalyticsData() {
   await connectToDatabase();
@@ -131,5 +132,9 @@ export default async function AdminAnalyticsPage() {
 
   const analyticsData = await getAnalyticsData();
 
-  return <PlatformAnalytics data={analyticsData} />;
+  return (
+    <AdminLayout>
+      <PlatformAnalytics data={analyticsData} />
+    </AdminLayout>
+  );
 }

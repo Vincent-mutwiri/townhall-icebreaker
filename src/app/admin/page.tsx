@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast, Toaster } from "sonner";
-import { Upload, Music, Image as ImageIcon, Home, Database, Settings, Trash2, RefreshCw, Eye, AlertCircle, CheckCircle, Clock, Grid, Play } from "lucide-react";
+import { toast } from "sonner";
+import { Upload, Music, Image as ImageIcon, Home, Database, Settings, Trash2, RefreshCw, Eye, AlertCircle, CheckCircle, Clock, Grid, Play, HardDrive } from "lucide-react";
 import Link from "next/link";
+import { AdminLayout } from "@/components/layouts/AdminLayout";
 
 const FileUpload = ({ label, icon, settingKey, onUploadSuccess }: { label: string, icon: React.ReactNode, settingKey: 'backgroundUrl' | 'musicUrl' | 'logoUrl', onUploadSuccess: () => void }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -451,9 +452,8 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <>
-      <Toaster richColors />
-      <div className="container mx-auto p-4 md:p-8">
+    <AdminLayout>
+      <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
@@ -494,6 +494,12 @@ export default function AdminDashboardPage() {
               <Button variant="outline">
                 <Settings className="mr-2 h-4 w-4" />
                 Landing Page
+              </Button>
+            </Link>
+            <Link href="/admin/media">
+              <Button variant="outline">
+                <HardDrive className="mr-2 h-4 w-4" />
+                Media Management
               </Button>
             </Link>
             <Link href="/">
@@ -978,6 +984,6 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </div>
-    </>
+    </AdminLayout>
   );
 }

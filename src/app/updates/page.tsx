@@ -2,6 +2,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
+import { UserLayout } from "@/components/layouts/UserLayout";
 import { UpdatesClient } from "@/components/updates/UpdatesClient";
 
 export default async function UpdatesPage() {
@@ -11,5 +12,9 @@ export default async function UpdatesPage() {
     redirect('/login');
   }
 
-  return <UpdatesClient />;
+  return (
+    <UserLayout>
+      <UpdatesClient />
+    </UserLayout>
+  );
 }

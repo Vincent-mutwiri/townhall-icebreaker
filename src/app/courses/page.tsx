@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Settings, Play, User } from "lucide-react";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { UserLayout } from "@/components/layouts/UserLayout";
 import connectToDatabase from "@/lib/database";
 import { Course } from "@/models/Course";
 
@@ -20,7 +21,8 @@ export default async function CoursesPage() {
   const publishedCourses = await getPublishedCourses();
 
   return (
-    <div className="container mx-auto p-8">
+    <UserLayout>
+      <div className="max-w-7xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-4">Courses</h1>
         <p className="text-muted-foreground mb-6">
@@ -107,6 +109,7 @@ export default async function CoursesPage() {
           </Card>
         )}
       </div>
-    </div>
+      </div>
+    </UserLayout>
   );
 }

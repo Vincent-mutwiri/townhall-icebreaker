@@ -124,25 +124,24 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={userData.avatar} alt={userData.name} />
-              <AvatarFallback className="text-xl">
-                {userData.name?.charAt(0)?.toUpperCase() || '?'}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h1 className="text-3xl font-bold">Welcome back, {userData.name}!</h1>
-              <p className="text-muted-foreground">
-                Ready to continue your learning journey?
-              </p>
-            </div>
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={userData.avatar} alt={userData.name} />
+            <AvatarFallback className="text-xl bg-blue-100 text-blue-700">
+              {userData.name?.charAt(0)?.toUpperCase() || '?'}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userData.name}!</h1>
+            <p className="text-gray-600">
+              Ready to continue your learning journey?
+            </p>
           </div>
         </div>
+      </div>
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left Column - Stats and Progress */}
@@ -163,15 +162,15 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-3xl font-bold text-blue-600">Level {currentLevel}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-600">
                         {currentXP.toLocaleString()} total XP
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-semibold">
+                      <div className="text-lg font-semibold text-gray-900">
                         {xpProgress}/{xpNeeded} XP
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-600">
                         to Level {currentLevel + 1}
                       </div>
                     </div>
@@ -188,8 +187,8 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   <div className="flex items-center gap-2">
                     <Zap className="h-5 w-5 text-yellow-500" />
                     <div>
-                      <div className="text-2xl font-bold">{userData.points || 0}</div>
-                      <div className="text-sm text-muted-foreground">Total Points</div>
+                      <div className="text-2xl font-bold text-gray-900">{userData.points || 0}</div>
+                      <div className="text-sm text-gray-600">Total Points</div>
                     </div>
                   </div>
                 </CardContent>
@@ -200,8 +199,8 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-blue-500" />
                     <div>
-                      <div className="text-2xl font-bold">{userData.stats?.coursesCompleted || 0}</div>
-                      <div className="text-sm text-muted-foreground">Courses</div>
+                      <div className="text-2xl font-bold text-gray-900">{userData.stats?.coursesCompleted || 0}</div>
+                      <div className="text-sm text-gray-600">Courses</div>
                     </div>
                   </div>
                 </CardContent>
@@ -212,8 +211,8 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   <div className="flex items-center gap-2">
                     <Gamepad2 className="h-5 w-5 text-green-500" />
                     <div>
-                      <div className="text-2xl font-bold">{userData.stats?.gamesPlayed || 0}</div>
-                      <div className="text-sm text-muted-foreground">Games</div>
+                      <div className="text-2xl font-bold text-gray-900">{userData.stats?.gamesPlayed || 0}</div>
+                      <div className="text-sm text-gray-600">Games</div>
                     </div>
                   </div>
                 </CardContent>
@@ -224,8 +223,8 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   <div className="flex items-center gap-2">
                     <Award className="h-5 w-5 text-purple-500" />
                     <div>
-                      <div className="text-2xl font-bold">{userData.badges?.length || 0}</div>
-                      <div className="text-sm text-muted-foreground">Badges</div>
+                      <div className="text-2xl font-bold text-gray-900">{userData.badges?.length || 0}</div>
+                      <div className="text-sm text-gray-600">Badges</div>
                     </div>
                   </div>
                 </CardContent>
@@ -250,9 +249,9 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   </div>
                 ) : activities.length === 0 ? (
                   <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No recent activity</p>
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No recent activity</p>
+                    <p className="text-sm text-gray-500 mt-2">
                       Start learning to see your progress here!
                     </p>
                   </div>
@@ -266,12 +265,12 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                             <IconComponent className="h-4 w-4" />
                           </div>
                           <div className="flex-1">
-                            <div className="font-medium">{activity.title}</div>
-                            <div className="text-sm text-muted-foreground">{activity.description}</div>
+                            <div className="font-medium text-gray-900">{activity.title}</div>
+                            <div className="text-sm text-gray-600">{activity.description}</div>
                           </div>
                           <div className="text-right">
                             <div className="font-semibold text-green-600">+{activity.points}</div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-gray-500">
                               {new Date(activity.date).toLocaleDateString()}
                             </div>
                           </div>
@@ -322,9 +321,9 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No badges yet</p>
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No badges yet</p>
+                    <p className="text-sm text-gray-500 mt-2">
                       Complete courses and games to earn your first badge!
                     </p>
                   </div>
@@ -404,7 +403,6 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }
