@@ -64,10 +64,17 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
       router.push(`/games/play/${gameData.joinCode}/live`);
     });
 
+    // Send first question after game starts
+    socket.on('game:question', (data) => {
+      // Redirect to live game if we receive a question
+      router.push(`/games/play/${gameData.joinCode}/live`);
+    });
+
     return () => {
       socket.off('player-update');
       socket.off('game-status-update');
       socket.off('game:started');
+      socket.off('game:question');
     };
   }, [socket, gameData.joinCode, router]);
 

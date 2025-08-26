@@ -82,14 +82,22 @@ app.prepare().then(() => {
 
         // Emit game started event to all players in the room
         io.to(joinCode).emit('game:started', {
-          question: {
-            text: firstQuestion.text,
-            options: firstQuestion.options,
-            questionIndex: 0,
-            totalQuestions: questions.length
-          },
-          timeLimit: template.rules?.timeLimit || 30
+          message: 'Game is starting!'
         });
+
+        // Send first question after a brief delay
+        setTimeout(() => {
+          io.to(joinCode).emit('game:question', {
+            question: {
+              text: firstQuestion.text,
+              options: firstQuestion.options,
+              questionIndex: 0,
+              totalQuestions: questions.length,
+              timeLimit: template.rules?.timeLimit || 30
+            },
+            timeLimit: template.rules?.timeLimit || 30
+          });
+        }, 3000); // 3 second delay to let players get ready
 
         console.log(`Game ${joinCode} started successfully`);
       } catch (error) {
@@ -98,14 +106,98 @@ app.prepare().then(() => {
       }
     });
 
-    socket.on('player:answer', async ({ joinCode, answer, timeRemaining }) => {
+    socket.on('player:answer', async ({ joinCode, answer, timeRemaining, timestamp }) => {
       console.log(`WebSocket: Answer submitted for game: ${joinCode}`);
-      // TODO: Implement answer processing in Phase 3, Step 3
+      try {
+        const { HostedGame } = await import('./src/models/HostedGame');
+        await import('./src/lib/database').then(m => m.default());
+
+        // Find the game and current question
+        const hostedGame = await HostedGame.findOne({ joinCode, status: 'live' })
+          .populate('templateId');
+
+        if (!hostedGame) {
+          socket.emit('error', { message: 'Game not found' });
+          return;
+        }
+
+        const template = hostedGame.templateId;
+        const currentQuestion = template.questions[hostedGame.currentQuestionIndex];
+        const playerIndex = hostedGame.players.findIndex((p: any) => p.userId.toString() === (socket as any).userId);
+
+        if (playerIndex === -1) {
+          socket.emit('error', { message: 'Player not found in game' });
+          return;
+        }
+
+        // Calculate response time and points
+        const responseTime = Date.now() - timestamp;
+        const isCorrect = answer === currentQuestion.correctAnswer;
+        let pointsEarned = 0;
+
+        if (isCorrect) {
+          const basePoints = template.rules?.basePoints || 100;
+          const timeBonusMax = template.rules?.timeBonusMax || 50;
+          const timeLimit = template.rules?.timeLimit || 30;
+
+          // Calculate time bonus (faster answers get more points)
+          const timeBonus = Math.round((timeRemaining / timeLimit) * timeBonusMax);
+          pointsEarned = basePoints + timeBonus;
+        }
+
+        // Update player's answer and score
+        await HostedGame.updateOne(
+          {
+            _id: hostedGame._id,
+            'players.userId': (socket as any).userId
+          },
+          {
+            $set: {
+              'players.$.hasAnswered': true,
+              'players.$.lastAnswer': answer,
+              'players.$.lastResponseTime': responseTime
+            },
+            $inc: {
+              'players.$.score': pointsEarned
+            }
+          }
+        );
+
+        // Check if all players have answered
+        const updatedGame = await HostedGame.findById(hostedGame._id);
+        const allAnswered = updatedGame.players.every((p: any) => p.hasAnswered);
+
+        if (allAnswered) {
+          // Process round results
+          setTimeout(() => {
+            processRoundResults(joinCode, io);
+          }, 2000); // Give a moment for UI updates
+        }
+
+      } catch (error) {
+        console.error('Error processing answer:', error);
+        socket.emit('error', { message: 'Failed to process answer' });
+      }
+    });
+
+    socket.on('host:next-question', async (joinCode) => {
+      console.log(`WebSocket: Host requesting next question for: ${joinCode}`);
+      try {
+        await processNextQuestion(joinCode, io);
+      } catch (error) {
+        console.error('Error processing next question:', error);
+        socket.emit('error', { message: 'Failed to load next question' });
+      }
     });
 
     socket.on('player-joined', (joinCode) => {
       // Notify all players in the room that someone joined
       socket.to(joinCode).emit('player-update');
+    });
+
+    // Store user ID on socket for answer processing
+    socket.on('authenticate', (userId) => {
+      (socket as any).userId = userId;
     });
 
     socket.on('disconnect', () => {
@@ -123,3 +215,199 @@ app.prepare().then(() => {
     console.log(`> Socket.IO server running`);
   });
 });
+
+// Game processing functions
+async function processRoundResults(joinCode: string, io: any) {
+  try {
+    const { HostedGame } = await import('./src/models/HostedGame');
+    await import('./src/lib/database').then(m => m.default());
+
+    const hostedGame = await HostedGame.findOne({ joinCode, status: 'live' })
+      .populate('templateId');
+
+    if (!hostedGame) return;
+
+    const template = hostedGame.templateId;
+    const currentQuestion = template.questions[hostedGame.currentQuestionIndex];
+
+    // Calculate results for each player
+    const playerResults = hostedGame.players.map((player: any) => {
+      const isCorrect = player.lastAnswer === currentQuestion.correctAnswer;
+      let pointsEarned = 0;
+
+      if (isCorrect) {
+        const basePoints = template.rules?.basePoints || 100;
+        const timeBonusMax = template.rules?.timeBonusMax || 50;
+        const timeLimit = template.rules?.timeLimit || 30;
+        const responseTimeSeconds = (player.lastResponseTime || 30000) / 1000;
+        const timeBonus = Math.max(0, Math.round(((timeLimit - responseTimeSeconds) / timeLimit) * timeBonusMax));
+        pointsEarned = basePoints + timeBonus;
+      }
+
+      return {
+        userId: player.userId,
+        playerName: player.name,
+        answer: player.lastAnswer,
+        isCorrect,
+        responseTime: player.lastResponseTime || 0,
+        pointsEarned,
+        totalScore: player.score
+      };
+    });
+
+    // Sort by points earned this round, then by response time
+    playerResults.sort((a, b) => {
+      if (a.pointsEarned !== b.pointsEarned) {
+        return b.pointsEarned - a.pointsEarned;
+      }
+      return a.responseTime - b.responseTime;
+    });
+
+    // Send round results
+    io.to(joinCode).emit('game:round-results', {
+      correctAnswer: currentQuestion.correctAnswer,
+      explanation: currentQuestion.explanation,
+      playerResults,
+      questionIndex: hostedGame.currentQuestionIndex,
+      totalQuestions: template.questions.length
+    });
+
+    // Reset player answer states
+    await HostedGame.updateOne(
+      { _id: hostedGame._id },
+      {
+        $set: {
+          'players.$[].hasAnswered': false,
+          'players.$[].lastAnswer': null,
+          'players.$[].lastResponseTime': null
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error('Error processing round results:', error);
+  }
+}
+
+async function processNextQuestion(joinCode: string, io: any) {
+  try {
+    const { HostedGame } = await import('./src/models/HostedGame');
+    await import('./src/lib/database').then(m => m.default());
+
+    const hostedGame = await HostedGame.findOne({ joinCode, status: 'live' })
+      .populate('templateId');
+
+    if (!hostedGame) return;
+
+    const template = hostedGame.templateId;
+    const nextQuestionIndex = hostedGame.currentQuestionIndex + 1;
+
+    if (nextQuestionIndex >= template.questions.length) {
+      // Game finished
+      await finishGame(joinCode, io);
+      return;
+    }
+
+    // Update current question index
+    await HostedGame.updateOne(
+      { _id: hostedGame._id },
+      { currentQuestionIndex: nextQuestionIndex }
+    );
+
+    const nextQuestion = template.questions[nextQuestionIndex];
+
+    // Send next question
+    io.to(joinCode).emit('game:next-question', {
+      question: {
+        text: nextQuestion.text,
+        options: nextQuestion.options,
+        questionIndex: nextQuestionIndex,
+        totalQuestions: template.questions.length
+      },
+      timeLimit: template.rules?.timeLimit || 30
+    });
+
+  } catch (error) {
+    console.error('Error processing next question:', error);
+  }
+}
+
+async function finishGame(joinCode: string, io: any) {
+  try {
+    const { HostedGame } = await import('./src/models/HostedGame');
+    const { Result } = await import('./src/models/Result');
+    const { User } = await import('./src/models/User');
+    await import('./src/lib/database').then(m => m.default());
+
+    const hostedGame = await HostedGame.findOne({ joinCode, status: 'live' })
+      .populate('templateId');
+
+    if (!hostedGame) return;
+
+    // Update game status to finished
+    await HostedGame.updateOne(
+      { _id: hostedGame._id },
+      {
+        status: 'finished',
+        finishedAt: new Date()
+      }
+    );
+
+    // Calculate final leaderboard
+    const finalLeaderboard = hostedGame.players
+      .map((player: any) => ({
+        userId: player.userId,
+        name: player.name,
+        score: player.score,
+        correctAnswers: 0 // We'll calculate this properly in a future enhancement
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    // Award points to all players and create Result documents
+    for (const player of hostedGame.players) {
+      if (player.score > 0) {
+        // Create result document
+        await Result.create({
+          userId: player.userId,
+          source: 'game',
+          sourceId: hostedGame._id,
+          score: Math.round((player.score / (hostedGame.templateId.questions.length * (hostedGame.templateId.rules?.basePoints || 100))) * 100),
+          pointsAwarded: player.score,
+          details: {
+            gameTitle: hostedGame.templateId.title,
+            joinCode: hostedGame.joinCode,
+            finalRank: finalLeaderboard.findIndex((p: any) => p.userId.toString() === player.userId.toString()) + 1,
+            totalPlayers: hostedGame.players.length
+          }
+        });
+
+        // Update user points
+        await User.updateOne(
+          { _id: player.userId },
+          {
+            $inc: {
+              points: player.score,
+              'stats.gamesPlayed': 1
+            }
+          }
+        );
+      }
+    }
+
+    // Send final results
+    io.to(joinCode).emit('game:finished', {
+      finalLeaderboard,
+      players: hostedGame.players,
+      gameStats: {
+        totalQuestions: hostedGame.templateId.questions.length,
+        totalPlayers: hostedGame.players.length,
+        gameTitle: hostedGame.templateId.title
+      }
+    });
+
+    console.log(`Game ${joinCode} finished successfully`);
+
+  } catch (error) {
+    console.error('Error finishing game:', error);
+  }
+}
