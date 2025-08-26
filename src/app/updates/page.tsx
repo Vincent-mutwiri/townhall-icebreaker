@@ -1,9 +1,15 @@
 // src/app/updates/page.tsx
-export default function UpdatesPage() {
-  return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold">Updates</h1>
-      <p className="text-muted-foreground">This page is under construction.</p>
-    </div>
-  );
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { redirect } from "next/navigation";
+import { UpdatesClient } from "@/components/updates/UpdatesClient";
+
+export default async function UpdatesPage() {
+  const session = await getServerSession(authOptions);
+
+  if (!session?.user) {
+    redirect('/login');
+  }
+
+  return <UpdatesClient />;
 }
