@@ -7,7 +7,7 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   name: string;
-  role: 'teacher' | 'admin';
+  role: 'user' | 'teacher' | 'admin';
   avatar?: string;
   points: number;
   level: number;
@@ -17,6 +17,7 @@ export interface IUser extends Document {
   }[];
   stats: {
     coursesTaken: number;
+    coursesCompleted: number;
     gamesCreated: number;
     gamesHosted: number;
     gamesPlayed: number;
@@ -50,8 +51,8 @@ const UserSchema = new Schema({
   },
   role: {
     type: String,
-    enum: ['teacher', 'admin'],
-    default: 'teacher'
+    enum: ['user', 'teacher', 'admin'],
+    default: 'user'
   },
   avatar: {
     type: String
@@ -70,6 +71,7 @@ const UserSchema = new Schema({
   }],
   stats: {
     coursesTaken: { type: Number, default: 0 },
+    coursesCompleted: { type: Number, default: 0 },
     gamesCreated: { type: Number, default: 0 },
     gamesHosted: { type: Number, default: 0 },
     gamesPlayed: { type: Number, default: 0 },
