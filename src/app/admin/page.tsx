@@ -490,6 +490,12 @@ export default function AdminDashboardPage() {
                 Review Queue
               </Button>
             </Link>
+            <Link href="/admin/announcements">
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Landing Page
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="outline">
                 <Home className="mr-2 h-4 w-4" />
