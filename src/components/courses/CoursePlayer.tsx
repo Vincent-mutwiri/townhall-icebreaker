@@ -8,51 +8,80 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Lock, PlayCircle, BookOpen, HelpCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
-import { QuizPlayer } from "./QuizPlayer"; // We will create this next
+import { QuizPlayer } from "./QuizPlayer";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export function CoursePlayer({ course, userId }: { course: any, userId: string }) {
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
-  // In a real app, you'd fetch user progress from the DB
-  const [completedModules, setCompletedModules] = useState<string[]>([]);
-  const [moduleScores, setModuleScores] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const activeModule = course.modules[activeModuleIndex];
-  const progress = (completedModules.length / course.modules.length) * 100;
+  const completedCount = course.modules.filter((m: any) => m.isCompleted).length;
+  const progress = (completedCount / course.modules.length) * 100;
 
-  const handleModuleComplete = (moduleId: string, pointsAwarded: number) => {
-    if (!completedModules.includes(moduleId)) {
-      setCompletedModules(prev => [...prev, moduleId]);
-      setModuleScores(prev => ({ ...prev, [moduleId]: pointsAwarded }));
-      
-      // Here you would call an API to save progress and award points
-      console.log(`Module ${moduleId} completed! Awarded ${pointsAwarded} points.`);
-    }
-    
-    // Move to the next module if available
-    if (activeModuleIndex < course.modules.length - 1) {
-      setActiveModuleIndex(prev => prev + 1);
+  const handleModuleComplete = async (moduleId: string, score?: number) => {
+    // Prevent re-completing a module
+    if (activeModule.isCompleted || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/progress/complete-module', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: course._id,
+          moduleId,
+          score: score || 0
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save progress.");
+      }
+
+      // Show success notification
+      if (data.courseCompleted) {
+        toast.success(`🎉 Course Complete! +${data.pointsAwarded} points!`, {
+          description: "Congratulations on finishing the entire course!"
+        });
+      } else {
+        toast.success(`✅ Module Complete! +${data.pointsAwarded} points!`);
+      }
+
+      // Mark the current module as completed in the local state
+      course.modules[activeModuleIndex].isCompleted = true;
+
+      // Unlock the next module if it exists and was locked
+      if (activeModuleIndex < course.modules.length - 1) {
+        const nextModule = course.modules[activeModuleIndex + 1];
+        if (nextModule.isLocked) {
+          // Simple unlock logic - in a real app, you'd re-fetch from server
+          nextModule.isLocked = false;
+        }
+        setActiveModuleIndex(prev => prev + 1);
+      } else if (data.courseCompleted) {
+        toast.info("🎓 You've completed the entire course! Well done!");
+      }
+
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save progress");
+      console.error('Progress save error:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleTextModuleComplete = () => {
-    handleModuleComplete(activeModule._id, 10); // Award 10 points for reading
+    handleModuleComplete(activeModule._id);
   };
 
-  const canAccessModule = (index: number) => {
-    // First module is always accessible
-    if (index === 0) return true;
-    
-    // Can access if previous module is completed
-    const previousModule = course.modules[index - 1];
-    return completedModules.includes(previousModule._id);
-  };
-
-  const getModuleIcon = (module: any, index: number) => {
-    if (completedModules.includes(module._id)) {
+  const getModuleIcon = (module: any) => {
+    if (module.isCompleted) {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
     }
-    if (!canAccessModule(index)) {
+    if (module.isLocked) {
       return <Lock className="h-5 w-5 text-gray-400" />;
     }
     if (module.type === 'quiz') {
@@ -82,34 +111,36 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
-                <span>{completedModules.length}/{course.modules.length} modules</span>
+                <span>{completedCount}/{course.modules.length} modules</span>
               </div>
               <Progress value={progress} className="h-2" />
               <p className="text-xs text-gray-500">{Math.round(progress)}% complete</p>
+              {course.userProgress && (
+                <p className="text-xs text-blue-600">
+                  Your points: {course.userProgress.userPoints}
+                </p>
+              )}
             </div>
           </div>
 
           <nav className="p-4 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
             {course.modules.map((module: any, index: number) => {
               const isActive = activeModuleIndex === index;
-              const isCompleted = completedModules.includes(module._id);
-              const canAccess = canAccessModule(index);
-              const score = moduleScores[module._id];
 
               return (
                 <button
                   key={module._id}
-                  onClick={() => canAccess && setActiveModuleIndex(index)}
-                  disabled={!canAccess}
+                  onClick={() => !module.isLocked && setActiveModuleIndex(index)}
+                  disabled={module.isLocked}
                   className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${
-                    isActive 
-                      ? 'bg-blue-100 border-2 border-blue-300 text-blue-900' 
-                      : canAccess
+                    isActive
+                      ? 'bg-blue-100 border-2 border-blue-300 text-blue-900'
+                      : !module.isLocked
                         ? 'hover:bg-gray-100 border border-gray-200'
                         : 'opacity-50 cursor-not-allowed border border-gray-100'
                   }`}
                 >
-                  {getModuleIcon(module, index)}
+                  {getModuleIcon(module)}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm truncate">
                       {module.title || `Module ${index + 1}`}
@@ -118,9 +149,14 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                       <Badge variant="outline" className="text-xs capitalize">
                         {module.type}
                       </Badge>
-                      {isCompleted && score && (
-                        <Badge variant="secondary" className="text-xs">
-                          {score} pts
+                      {module.isCompleted && (
+                        <Badge variant="secondary" className="text-xs text-green-700 bg-green-100">
+                          ✓ Done
+                        </Badge>
+                      )}
+                      {module.isLocked && module.lockRules?.minPoints && (
+                        <Badge variant="outline" className="text-xs text-amber-700">
+                          {module.lockRules.minPoints} pts needed
                         </Badge>
                       )}
                     </div>
@@ -161,14 +197,18 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                   <div className="prose prose-lg max-w-none">
                     <ReactMarkdown>{activeModule.content || 'No content available.'}</ReactMarkdown>
                   </div>
-                  
-                  {!completedModules.includes(activeModule._id) && (
+
+                  {!activeModule.isCompleted && (
                     <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-sm text-blue-800 mb-3">
                         Have you finished reading this module?
                       </p>
-                      <Button onClick={handleTextModuleComplete} className="w-full sm:w-auto">
-                        Mark as Complete
+                      <Button
+                        onClick={handleTextModuleComplete}
+                        className="w-full sm:w-auto"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Saving..." : "Mark as Complete"}
                       </Button>
                     </div>
                   )}
@@ -178,9 +218,8 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
               {activeModule.type === 'quiz' && (
                 <QuizPlayer
                   module={activeModule}
-                  onComplete={(points) => handleModuleComplete(activeModule._id, points)}
-                  isCompleted={completedModules.includes(activeModule._id)}
-                  previousScore={moduleScores[activeModule._id]}
+                  onComplete={(score) => handleModuleComplete(activeModule._id, score)}
+                  isCompleted={activeModule.isCompleted}
                 />
               )}
 
@@ -210,11 +249,15 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                       </div>
                     )}
                   </div>
-                  
-                  {!completedModules.includes(activeModule._id) && (
+
+                  {!activeModule.isCompleted && (
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <Button onClick={handleTextModuleComplete} className="w-full sm:w-auto">
-                        Mark as Complete
+                      <Button
+                        onClick={handleTextModuleComplete}
+                        className="w-full sm:w-auto"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Saving..." : "Mark as Complete"}
                       </Button>
                     </div>
                   )}
@@ -233,14 +276,18 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                       </p>
                     </div>
                   )}
-                  
-                  {!completedModules.includes(activeModule._id) && (
+
+                  {!activeModule.isCompleted && (
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-sm text-blue-800 mb-3">
                         Have you completed this assignment?
                       </p>
-                      <Button onClick={handleTextModuleComplete} className="w-full sm:w-auto">
-                        Mark as Complete
+                      <Button
+                        onClick={handleTextModuleComplete}
+                        className="w-full sm:w-auto"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Saving..." : "Mark as Complete"}
                       </Button>
                     </div>
                   )}
@@ -265,7 +312,10 @@ export function CoursePlayer({ course, userId }: { course: any, userId: string }
                 <Button
                   variant="outline"
                   onClick={() => setActiveModuleIndex(prev => Math.min(course.modules.length - 1, prev + 1))}
-                  disabled={activeModuleIndex === course.modules.length - 1 || !canAccessModule(activeModuleIndex + 1)}
+                  disabled={
+                    activeModuleIndex === course.modules.length - 1 ||
+                    (activeModuleIndex < course.modules.length - 1 && course.modules[activeModuleIndex + 1].isLocked)
+                  }
                 >
                   Next
                   <ArrowRight className="h-4 w-4 ml-2" />

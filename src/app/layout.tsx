@@ -6,6 +6,7 @@ import { SocketProvider } from "@/context/SocketProvider";
 import { SettingsProvider } from "@/context/SettingsProvider";
 import { AudioProvider } from "@/context/AudioProvider";
 import { AuthProvider } from "@/context/AuthProvider";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,7 +29,10 @@ export default function RootLayout({
         <AuthProvider>
           <SettingsProvider>
             <AudioProvider>
-              <SocketProvider>{children}</SocketProvider>
+              <SocketProvider>
+                {children}
+                <Toaster position="top-right" richColors />
+              </SocketProvider>
             </AudioProvider>
           </SettingsProvider>
         </AuthProvider>

@@ -10,12 +10,11 @@ import { CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react";
 
 type QuizPlayerProps = {
   module: any;
-  onComplete: (points: number) => void;
+  onComplete: (score: number) => void;
   isCompleted?: boolean;
-  previousScore?: number;
 };
 
-export function QuizPlayer({ module, onComplete, isCompleted = false, previousScore }: QuizPlayerProps) {
+export function QuizPlayer({ module, onComplete, isCompleted = false }: QuizPlayerProps) {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -65,10 +64,9 @@ export function QuizPlayer({ module, onComplete, isCompleted = false, previousSc
       // Quiz finished
       const finalScore = score + (isCorrect ? 1 : 0);
       const percentage = Math.round((finalScore / questions.length) * 100);
-      const points = Math.max(10, percentage); // Minimum 10 points, max 100
-      
+
       setQuizCompleted(true);
-      onComplete(points);
+      onComplete(percentage); // Pass the percentage score to the parent
     }
   };
 
@@ -84,7 +82,6 @@ export function QuizPlayer({ module, onComplete, isCompleted = false, previousSc
   if (quizCompleted) {
     const finalScore = score;
     const percentage = Math.round((finalScore / questions.length) * 100);
-    const points = previousScore || Math.max(10, percentage);
 
     return (
       <Card>
@@ -112,7 +109,7 @@ export function QuizPlayer({ module, onComplete, isCompleted = false, previousSc
             </div>
             
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-blue-800 font-medium">Points Earned: {points}</p>
+              <p className="text-blue-800 font-medium">Quiz Score: {percentage}%</p>
             </div>
           </div>
 
