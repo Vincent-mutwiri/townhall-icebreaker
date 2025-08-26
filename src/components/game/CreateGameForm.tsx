@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketProvider";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,14 +20,27 @@ import { Label } from "@/components/ui/label";
 export function CreateGameForm() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
+  const { data: session } = useSession();
   const [hostName, setHostName] = useState("");
   const [initialPrize, setInitialPrize] = useState("100");
   const [incrementAmount, setIncrementAmount] = useState("20");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check if user is authenticated
+  const isAuthenticated = !!session?.user;
+  const displayName = session?.user?.name || hostName;
+  const isNameDisabled = !!session?.user?.name;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check authentication
+    if (!isAuthenticated) {
+      setError('You must be signed in to create a game.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -37,10 +51,8 @@ export function CreateGameForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          hostName,
           initialPrize: Number(initialPrize),
           incrementAmount: Number(incrementAmount),
-          hostSocketId: socket?.id,
         }),
       });
 
@@ -65,7 +77,10 @@ export function CreateGameForm() {
       <CardHeader>
         <CardTitle>Create a New Game</CardTitle>
         <CardDescription>
-          Set the starting prize and round increment to begin.
+          {isAuthenticated ?
+            'Set the starting prize and round increment to begin.' :
+            'Sign in to create and host a game.'
+          }
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -75,10 +90,17 @@ export function CreateGameForm() {
             <Input
               id="host-name"
               placeholder="e.g., John Doe"
-              value={hostName}
+              value={displayName}
               onChange={(e) => setHostName(e.target.value)}
-              required
+              required={!session?.user?.name}
+              disabled={isNameDisabled}
+              className={isNameDisabled ? "cursor-not-allowed bg-muted" : ""}
             />
+            {session?.user?.name && (
+              <p className="text-xs text-muted-foreground">
+                You're signed in as {session.user.name}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="initial-prize">Initial Cash Prize ($)</Label>
@@ -114,9 +136,20 @@ export function CreateGameForm() {
               <span className="font-semibold text-red-500">Connecting...</span>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Creating...' : 'Create Game'}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !isAuthenticated}
+          >
+            {isLoading ? 'Creating...' :
+             !isAuthenticated ? 'Sign In Required' :
+             'Create Game'}
           </Button>
+          {!isAuthenticated && (
+            <p className="text-xs text-center text-muted-foreground">
+              <a href="/login" className="text-blue-600 hover:underline">Sign in</a> to create a game
+            </p>
+          )}
         </CardFooter>
       </form>
     </Card>

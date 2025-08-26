@@ -1,10 +1,15 @@
 // src/app/api/game/join/route.ts
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
 import { Player } from '@/models/Player';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: Request) {
+  // Get session to check if user is authenticated
+  const session = await getServerSession(authOptions);
+
   try {
     await connectToDatabase();
 
@@ -12,10 +17,17 @@ export async function POST(request: Request) {
     const { pin, name } = body;
 
     // 1. Validate input
-    if (!pin || !name) {
-      return NextResponse.json({ message: 'Game PIN and name are required.' }, { status: 400 });
+    if (!pin) {
+      return NextResponse.json({ message: 'Game PIN is required.' }, { status: 400 });
     }
-    if (name.length < 2 || name.length > 20) {
+
+    // For authenticated users, use their session name; for guests, require name input
+    const playerName = session?.user?.name || name;
+    if (!playerName) {
+      return NextResponse.json({ message: 'Name is required.' }, { status: 400 });
+    }
+
+    if (playerName.length < 2 || playerName.length > 20) {
       return NextResponse.json({ message: 'Name must be between 2 and 20 characters.' }, { status: 400 });
     }
 
@@ -42,21 +54,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Game is full. Maximum 150 players allowed.' }, { status: 403 });
     }
 
-    // 6. Prevent host from joining as player
-    if (name.toLowerCase() === game.hostName?.toLowerCase()) {
+    // 6. Prevent host from joining as player (check by user ID if authenticated)
+    if (session?.user && (session.user as any).id.toString() === game.host.toString()) {
+      return NextResponse.json({ message: 'Host cannot join as a player.' }, { status: 403 });
+    }
+
+    // Also check by name for additional safety
+    if (playerName.toLowerCase() === game.hostName?.toLowerCase()) {
       return NextResponse.json({ message: 'Host cannot join as a player.' }, { status: 403 });
     }
 
     // 7. Check for duplicate names
-    const existingPlayer = await Player.findOne({ game: game._id, name: name });
+    const existingPlayer = await Player.findOne({ game: game._id, name: playerName });
     if (existingPlayer) {
       return NextResponse.json({ message: 'A player with this name already exists in the game.' }, { status: 409 });
     }
 
-    // 8. Create a new player
+    // 8. Create a new player, linking user if authenticated
     const newPlayer = new Player({
-      name: name,
+      name: playerName,
       game: game._id, // Link player to the game
+      user: session?.user ? (session.user as any).id : undefined, // Link user ID if logged in
     });
     await newPlayer.save();
 

@@ -1,6 +1,6 @@
 // src/models/Player.ts
 import pkg from 'mongoose';
-const { Schema, model, models } = pkg;
+const { Schema, model, models, Document } = pkg;
 
 // Define a schema for the 'lastAnswer' object for better data integrity
 const LastAnswerSchema = new Schema({
@@ -13,6 +13,7 @@ const LastAnswerSchema = new Schema({
 export interface IPlayer extends Document {
   name: string;
   game: pkg.Schema.Types.ObjectId;
+  user?: pkg.Schema.Types.ObjectId; // Optional reference to User for authenticated players
   score: number;
   isEliminated: boolean;
   lastAnswer?: {
@@ -28,6 +29,8 @@ const PlayerSchema = new Schema({
   name: { type: String, required: true },
   // A reference to the game this player belongs to
   game: { type: pkg.Schema.Types.ObjectId, ref: 'Game', required: true },
+  // Optional reference to User for authenticated players
+  user: { type: pkg.Schema.Types.ObjectId, ref: 'User', required: false },
   score: { type: Number, default: 0 },
   isEliminated: { type: Boolean, default: false },
   hasAnswered: { type: Boolean, default: false },

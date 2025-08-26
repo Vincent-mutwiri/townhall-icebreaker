@@ -1,8 +1,10 @@
 // src/app/api/game/create/route.ts
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
 import { randomUUID } from 'crypto';
 import connectToDatabase from '@/lib/database';
 import { Game } from '@/models/Game';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // We'll use a simple in-memory store for now to generate unique pins.
 // In a larger application, you might check the DB to ensure uniqueness.
@@ -19,24 +21,28 @@ function generateUniquePin(): string {
 }
 
 export async function POST(request: Request) {
+  // 1. Check authentication
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user) {
+    return NextResponse.json({ message: 'Not authenticated' }, { status: 401 });
+  }
+
   try {
-    // 1. Connect to the database
+    // 2. Connect to the database
     await connectToDatabase();
 
-    // 2. Parse the request body
+    // 3. Parse the request body
     const body = await request.json();
-    const { hostName, initialPrize, incrementAmount, hostSocketId } = body;
+    const { initialPrize, incrementAmount } = body;
 
-    // 3. Validate the input
-    if (!hostName || !initialPrize || !incrementAmount || initialPrize <= 0 || incrementAmount <= 0) {
+    // 4. Validate the input
+    if (!initialPrize || !incrementAmount || initialPrize <= 0 || incrementAmount <= 0) {
       return NextResponse.json(
-        { message: 'Invalid input. Name is required and prize/increment must be positive numbers.' },
+        { message: 'Invalid input. Prize and increment must be positive numbers.' },
         { status: 400 }
       );
     }
-
-    // 4. Use fallback host ID if socket ID is not available
-    const finalHostId = hostSocketId || 'temp-host-' + Date.now();
 
     // 5. Generate a unique game pin
     const gamePin = generateUniquePin();
@@ -44,8 +50,8 @@ export async function POST(request: Request) {
     // 6. Create a new game document
     const newGame = new Game({
       pin: gamePin,
-      host: finalHostId,
-      hostName: hostName,
+      host: (session.user as any).id, // Use the authenticated user's ID
+      hostName: session.user.name || 'Host',
       initialPrize: initialPrize,
       incrementAmount: incrementAmount,
       prizePool: initialPrize, // The prize pool starts at the initial amount

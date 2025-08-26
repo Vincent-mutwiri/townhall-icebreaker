@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketProvider";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,10 +20,15 @@ import { Label } from "@/components/ui/label";
 export function JoinGameForm() {
   const router = useRouter();
   const { socket } = useSocket();
+  const { data: session } = useSession();
   const [pin, setPin] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Use session name as default, otherwise empty string
+  const displayName = session?.user?.name || name;
+  const isNameDisabled = !!session?.user?.name;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +39,10 @@ export function JoinGameForm() {
       const response = await fetch('/api/game/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pin.toUpperCase(), name }),
+        body: JSON.stringify({
+          pin: pin.toUpperCase(),
+          name: session?.user?.name || name // Send the appropriate name
+        }),
       });
 
       const data = await response.json();
@@ -69,7 +78,10 @@ export function JoinGameForm() {
       <CardHeader>
         <CardTitle>Join a Game</CardTitle>
         <CardDescription>
-          Enter the 6-digit game PIN and your name to join.
+          {session?.user ?
+            `Enter the 6-digit game PIN to join as ${session.user.name}.` :
+            'Enter the 6-digit game PIN and your name to join.'
+          }
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -91,10 +103,17 @@ export function JoinGameForm() {
             <Input
               id="name"
               placeholder="e.g., Jane Doe"
-              value={name}
+              value={displayName}
               onChange={(e) => setName(e.target.value)}
-              required
+              required={!session?.user?.name}
+              disabled={isNameDisabled}
+              className={isNameDisabled ? "cursor-not-allowed bg-muted" : ""}
             />
+            {session?.user?.name && (
+              <p className="text-xs text-muted-foreground">
+                You're signed in as {session.user.name}
+              </p>
+            )}
           </div>
           {error && <p className="text-sm font-medium text-destructive">{error}</p>}
         </CardContent>

@@ -1,46 +1,71 @@
-"use client";
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { notFound } from 'next/navigation';
+import connectToDatabase from '@/lib/database';
+import { Game } from '@/models/Game';
+import { SetupClientComponent } from './SetupClientComponent';
+export default async function GameSetupPage({ params }: { params: Promise<{ pin: string }> }) {
+  const { pin } = await params;
+  const session = await getServerSession(authOptions);
 
-import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
-import { useSocket } from "@/context/SocketProvider";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { toast, Toaster } from "sonner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Import, Edit, Trash2, Search, ChevronUp, ChevronDown, CheckSquare } from "lucide-react";
+  // Check authentication
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 p-4">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-4">You must be signed in to access the game setup page.</p>
+          <a href="/login" className="text-blue-600 hover:underline font-medium">
+            Sign in to continue
+          </a>
+        </div>
+      </div>
+    );
+  }
 
-type Question = {
-  _id: string;
-  text: string;
-  options: string[];
-  correctAnswer: string;
-};
+  try {
+    await connectToDatabase();
+    const game = await Game.findOne({ pin });
 
-export default function GameSetupPage({ params }: { params: Promise<{ pin: string }> }) {
-  const { pin } = use(params);
-  const router = useRouter();
-  const { socket } = useSocket();
-  const [gameQuestions, setGameQuestions] = useState<Question[]>([]);
-  const [globalQuestions, setGlobalQuestions] = useState<Question[]>([]);
-  const [newQuestion, setNewQuestion] = useState({ text: "", options: ["", "", "", ""], correctAnswer: "", isGlobal: false });
-  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedGlobalQuestions, setSelectedGlobalQuestions] = useState<string[]>([]);
-  const [players, setPlayers] = useState<Array<{_id: string, name: string}>>([]);
-  const [currentView, setCurrentView] = useState<'overview' | 'players' | 'questions'>('overview');
-  
-  const filteredGlobalQuestions = globalQuestions.filter(q => 
-    q.text.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    if (!game) {
+      notFound();
+    }
 
-  useEffect(() => {
+    // Security Check: Verify user is the host
+    if ((session.user as any).id.toString() !== game.host.toString()) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 p-4">
+          <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+            <p className="text-gray-600 mb-4">You are not the host of this game.</p>
+            <a href="/dashboard" className="text-blue-600 hover:underline font-medium">
+              Return to Dashboard
+            </a>
+          </div>
+        </div>
+      );
+    }
+
+    // If authentication passes, render the client component
+    return <SetupClientComponent pin={pin} />;
+
+  } catch (error) {
+    console.error('Error checking game access:', error);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 p-4">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+          <p className="text-gray-600 mb-4">An error occurred while checking game access.</p>
+          <a href="/dashboard" className="text-blue-600 hover:underline font-medium">
+            Return to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+}
+
+
     const fetchData = async () => {
       const [globalRes, gameRes, playersRes] = await Promise.all([
         fetch('/api/questions'),

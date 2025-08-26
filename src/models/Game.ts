@@ -1,12 +1,13 @@
 // src/models/Game.ts
 import pkg from 'mongoose';
-const { Schema, model, models } = pkg;
+const { Schema, model, models, Document } = pkg;
 import './Player.ts'; // Ensure Player model is registered
 import './Question.ts'; // Ensure Question model is registered
+import './User.ts'; // Ensure User model is registered
 
 export interface IGame extends Document {
   pin: string;
-  host: string;
+  host: pkg.Schema.Types.ObjectId; // Changed from string to User reference
   hostName: string;
   status: 'lobby' | 'in-progress' | 'voting' | 'finished';
   initialPrize: number;
@@ -30,7 +31,7 @@ export interface IGame extends Document {
 
 const GameSchema = new Schema({
   pin: { type: String, required: true, unique: true, index: true },
-  host: { type: String, required: false },
+  host: { type: pkg.Schema.Types.ObjectId, ref: 'User', required: true }, // Changed to User reference
   hostName: { type: String, required: false },
   status: {
     type: String,
