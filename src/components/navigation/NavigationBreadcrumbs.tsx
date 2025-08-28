@@ -29,7 +29,7 @@ export function NavigationBreadcrumbs() {
     segments.forEach((segment) => {
       currentPath += `/${segment}`;
       const label = routeLabels[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1);
-      breadcrumbs.push({ label, href: currentPath });
+      breadcrumbs.push({ label, href: currentPath, icon: <span /> });
     });
     
     return breadcrumbs;
