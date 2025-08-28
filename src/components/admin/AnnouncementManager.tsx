@@ -30,7 +30,7 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import Image from "next/image";
-import { uploadFileToS3 } from "@/lib/s3-utils";
+import { MediaUploader } from "@/components/ui/media-uploader";
 
 interface AnnouncementPost {
   _id: string;
@@ -55,7 +55,7 @@ export function AnnouncementManager() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'published'>('all');
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -177,42 +177,8 @@ export function AnnouncementManager() {
     setShowForm(false);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image size must be less than 10MB');
-      return;
-    }
-
-    setIsUploadingImage(true);
-
-    try {
-      const result = await uploadFileToS3(file, 'announcements');
-
-      if (result.success && result.url) {
-        setFormData(prev => ({ ...prev, coverImage: result.url || '' }));
-        toast.success('Cover image uploaded successfully!');
-      } else {
-        throw new Error(result.error || 'Upload failed');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      toast.error(`Upload failed: ${errorMessage}`);
-    } finally {
-      setIsUploadingImage(false);
-      // Clear the input so the same file can be selected again
-      event.target.value = '';
-    }
+  const handleImageUpload = (url: string) => {
+    setFormData(prev => ({ ...prev, coverImage: url }));
   };
 
   const formatDate = (dateString: string) => {
@@ -391,67 +357,17 @@ export function AnnouncementManager() {
 
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">or</span>
-                    <div>
-                      <input
-                        ref={(input) => {
-                          if (input) {
-                            (window as any).imageUploadInput = input;
-                          }
-                        }}
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                        onChange={handleImageUpload}
-                        disabled={isUploadingImage}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isUploadingImage}
-                        onClick={() => {
-                          const input = (window as any).imageUploadInput;
-                          if (input) input.click();
-                        }}
-                      >
-                        {isUploadingImage ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload Image
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    <MediaUploader
+                      onUploadComplete={handleImageUpload}
+                      currentUrl={formData.coverImage}
+                      folder="announcements"
+                      maxSizeMB={10}
+                      allowedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']}
+                      accept="image/*"
+                      buttonText="Upload Image"
+                      showPreview={true}
+                    />
                   </div>
-
-                  {formData.coverImage && (
-                    <div className="relative w-full max-w-md">
-                      <Image
-                        src={formData.coverImage}
-                        alt="Cover image preview"
-                        width={400}
-                        height={200}
-                        className="rounded-lg object-cover border"
-                        onError={() => {
-                          toast.error('Failed to load image preview');
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => setFormData(prev => ({ ...prev, coverImage: '' }))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
 

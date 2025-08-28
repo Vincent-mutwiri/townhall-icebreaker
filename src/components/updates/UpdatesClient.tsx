@@ -29,7 +29,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadFileToS3 } from "@/lib/s3-utils";
+import { useS3Upload } from "@/hooks/useS3Upload";
+import { MediaUploader } from "@/components/ui/media-uploader";
 import Image from "next/image";
 
 interface UpdatePost {
@@ -71,7 +72,7 @@ export function UpdatesClient() {
   const [newPostText, setNewPostText] = useState('');
   const [newPostTags, setNewPostTags] = useState('');
   const [newPostMedia, setNewPostMedia] = useState<string[]>([]);
-  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const { uploadFile, isUploading: uploadingMedia } = useS3Upload();
   const [page, setPage] = useState(1);
   const [reportingPost, setReportingPost] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState('');
@@ -100,57 +101,38 @@ export function UpdatesClient() {
     fetchUpdates();
   }, []);
 
-  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    // Validate file types
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    const invalidFiles = files.filter(file => !allowedTypes.includes(file.type));
-
-    if (invalidFiles.length > 0) {
-      toast.error('Please select only image files (JPEG, PNG, GIF, or WebP)');
-      return;
-    }
-
-    // Validate file sizes (5MB limit per file)
-    const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
-    if (oversizedFiles.length > 0) {
-      toast.error('Each image must be less than 5MB');
-      return;
-    }
-
+  const handleMediaUpload = async (files: FileList) => {
+    const fileArray = Array.from(files);
+    
     // Limit to 4 images total
-    if (newPostMedia.length + files.length > 4) {
+    if (newPostMedia.length + fileArray.length > 4) {
       toast.error('You can upload a maximum of 4 images per post');
       return;
     }
 
-    setUploadingMedia(true);
-
     try {
-      const uploadPromises = files.map(file => uploadFileToS3(file, 'updates'));
+      const uploadPromises = fileArray.map(file => 
+        uploadFile(file, {
+          folder: 'updates',
+          maxSizeMB: 5,
+          allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        })
+      );
+      
       const results = await Promise.all(uploadPromises);
-
-      const successfulUploads = results
-        .filter(result => result.success && result.url)
-        .map(result => result.url!);
+      const successfulUploads = results.filter(url => url !== null) as string[];
 
       if (successfulUploads.length > 0) {
         setNewPostMedia(prev => [...prev, ...successfulUploads]);
-        toast.success(`${successfulUploads.length} image(s) uploaded successfully!`);
-      }
-
-      const failedUploads = results.filter(result => !result.success);
-      if (failedUploads.length > 0) {
-        toast.error(`${failedUploads.length} image(s) failed to upload`);
       }
     } catch (error) {
       toast.error('Failed to upload images');
-    } finally {
-      setUploadingMedia(false);
-      // Clear the input so the same files can be selected again
-      event.target.value = '';
+    }
+  };
+
+  const handleSingleMediaUpload = (url: string) => {
+    if (url && newPostMedia.length < 4) {
+      setNewPostMedia(prev => [...prev, url]);
     }
   };
 
@@ -366,41 +348,16 @@ export function UpdatesClient() {
 
             <div className="flex justify-between items-center">
               <div className="flex gap-2">
-                <input
-                  ref={(input) => {
-                    if (input) {
-                      (window as any).updateMediaUploadInput = input;
-                    }
-                  }}
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                  multiple
-                  onChange={handleMediaUpload}
-                  disabled={uploadingMedia}
-                  className="hidden"
+                <MediaUploader
+                  onUploadComplete={handleSingleMediaUpload}
+                  folder="updates"
+                  maxSizeMB={5}
+                  allowedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']}
+                  accept="image/*"
+                  buttonText={`Add Photos (${newPostMedia.length}/4)`}
+                  showPreview={false}
+                  className={newPostMedia.length >= 4 ? 'opacity-50 pointer-events-none' : ''}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={uploadingMedia || newPostMedia.length >= 4}
-                  onClick={() => {
-                    const input = (window as any).updateMediaUploadInput;
-                    if (input) input.click();
-                  }}
-                >
-                  {uploadingMedia ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="h-4 w-4 mr-2" />
-                      Add Photos ({newPostMedia.length}/4)
-                    </>
-                  )}
-                </Button>
               </div>
               
               <Button type="submit" disabled={posting || !newPostText.trim()}>

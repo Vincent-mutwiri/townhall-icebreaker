@@ -19,7 +19,7 @@ import { TextModuleEditor } from "./module-editors/TextModuleEditor";
 import { QuizModuleEditor } from "./module-editors/QuizModuleEditor";
 import { ImageModuleEditor } from "./module-editors/ImageModuleEditor";
 import { VideoModuleEditor } from "./module-editors/VideoModuleEditor";
-import { uploadFileToS3 } from "@/lib/s3-utils";
+import { MediaUploader } from "@/components/ui/media-uploader";
 
 // Define a type for our course state
 type CourseState = {
@@ -37,44 +37,8 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
     initialCourse || { title: '', description: '', cover: '', modules: [], status: 'draft' }
   );
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
-
-  const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image size must be less than 10MB');
-      return;
-    }
-
-    setIsUploadingCover(true);
-
-    try {
-      const result = await uploadFileToS3(file, 'courses');
-
-      if (result.success && result.url) {
-        setCourse(prev => ({ ...prev, cover: result.url }));
-        toast.success('Cover image uploaded successfully!');
-      } else {
-        throw new Error(result.error || 'Upload failed');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      toast.error(`Upload failed: ${errorMessage}`);
-    } finally {
-      setIsUploadingCover(false);
-      // Clear the input so the same file can be selected again
-      event.target.value = '';
-    }
+  const handleCoverImageUpload = (url: string) => {
+    setCourse(prev => ({ ...prev, cover: url }));
   };
 
   const handleSaveCourse = async () => {
@@ -216,69 +180,16 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
                 {/* Cover Image Upload */}
                 <div className="space-y-2">
                   <Label htmlFor="cover">Cover Image</Label>
-                  <div className="space-y-4">
-                    {course.cover && (
-                      <div className="relative w-full h-48 rounded-lg overflow-hidden border">
-                        <NextImage
-                          src={course.cover}
-                          alt="Course cover"
-                          fill
-                          className="object-cover"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => setCourse(prev => ({ ...prev, cover: '' }))}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={(input) => {
-                          if (input) {
-                            (window as any).courseCoverUploadInput = input;
-                          }
-                        }}
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                        onChange={handleCoverImageUpload}
-                        disabled={isUploadingCover}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isUploadingCover}
-                        onClick={() => {
-                          const input = (window as any).courseCoverUploadInput;
-                          if (input) input.click();
-                        }}
-                      >
-                        {isUploadingCover ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            {course.cover ? 'Change Cover' : 'Upload Cover'}
-                          </>
-                        )}
-                      </Button>
-                      {course.cover && (
-                        <span className="text-sm text-muted-foreground">
-                          Cover image uploaded
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <MediaUploader
+                    onUploadComplete={handleCoverImageUpload}
+                    currentUrl={course.cover}
+                    folder="courses"
+                    maxSizeMB={10}
+                    allowedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']}
+                    accept="image/*"
+                    buttonText={course.cover ? 'Change Cover' : 'Upload Cover'}
+                    showPreview={true}
+                  />
                 </div>
 
                 <div className="space-y-2">

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Loader2, Trash2, ExternalLink, Play, Link } from 'lucide-react';
 import { toast } from 'sonner';
-import { uploadFileToS3 } from '@/lib/s3-utils';
+import { MediaUploader } from '@/components/ui/media-uploader';
 
 interface VideoModuleEditorProps {
   module: {
@@ -27,53 +27,18 @@ interface VideoModuleEditorProps {
 }
 
 export function VideoModuleEditor({ module, onChange }: VideoModuleEditorProps) {
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadType, setUploadType] = useState<'upload' | 'external'>(
     module.content.type === 'upload' ? 'upload' : 'external'
   );
 
-  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Please select a valid video file (MP4, WebM, OGG, AVI, or MOV)');
-      return;
-    }
-
-    // Validate file size (100MB limit)
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('Video size must be less than 100MB');
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const result = await uploadFileToS3(file, 'courses/videos');
-      
-      if (result.success && result.url) {
-        onChange({
-          content: {
-            ...module.content,
-            url: result.url,
-            type: 'upload'
-          }
-        });
-        toast.success('Video uploaded successfully!');
-      } else {
-        throw new Error(result.error || 'Upload failed');
+  const handleVideoUpload = (url: string) => {
+    onChange({
+      content: {
+        ...module.content,
+        url: url,
+        type: 'upload'
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      toast.error(`Upload failed: ${errorMessage}`);
-    } finally {
-      setIsUploading(false);
-      // Clear the input so the same file can be selected again
-      event.target.value = '';
-    }
+    });
   };
 
   const getVideoEmbedUrl = (url: string) => {
@@ -132,6 +97,17 @@ export function VideoModuleEditor({ module, onChange }: VideoModuleEditorProps) 
             </TabsList>
             
             <TabsContent value="upload" className="space-y-4">
+              <MediaUploader
+                onUploadComplete={handleVideoUpload}
+                currentUrl={module.content.type === 'upload' ? module.content.url : ''}
+                folder="courses/videos"
+                maxSizeMB={100}
+                allowedTypes={['video/mp4', 'video/webm', 'video/ogg', 'video/avi', 'video/mov']}
+                accept="video/*"
+                buttonText={module.content.url && module.content.type === 'upload' ? 'Change Video' : 'Upload Video'}
+                showPreview={false}
+              />
+              
               {module.content.url && module.content.type === 'upload' && (
                 <div className="space-y-2">
                   <div className="relative w-full max-w-md">
@@ -142,62 +118,9 @@ export function VideoModuleEditor({ module, onChange }: VideoModuleEditorProps) 
                     >
                       Your browser does not support the video tag.
                     </video>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => onChange({
-                        content: { ...module.content, url: '', type: undefined }
-                      })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               )}
-              
-              <div className="flex items-center gap-2">
-                <input
-                  ref={(input) => {
-                    if (input) {
-                      (window as any).videoModuleUploadInput = input;
-                    }
-                  }}
-                  type="file"
-                  accept="video/mp4,video/webm,video/ogg,video/avi,video/mov"
-                  onChange={handleVideoUpload}
-                  disabled={isUploading}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isUploading}
-                  onClick={() => {
-                    const input = (window as any).videoModuleUploadInput;
-                    if (input) input.click();
-                  }}
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {module.content.url && module.content.type === 'upload' ? 'Change Video' : 'Upload Video'}
-                    </>
-                  )}
-                </Button>
-                {module.content.url && module.content.type === 'upload' && (
-                  <span className="text-sm text-muted-foreground">
-                    Video uploaded
-                  </span>
-                )}
-              </div>
             </TabsContent>
             
             <TabsContent value="external" className="space-y-4">

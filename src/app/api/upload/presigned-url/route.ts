@@ -8,36 +8,28 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    // For now, allow unauthenticated uploads for public features like announcements
-    // In production, you might want to restrict this based on your needs
-    
-    const { key, contentType, fileSize, requireAuth = false } = await request.json();
+    const { fileType, fileName, folder = 'general', requireAuth = false } = await request.json();
     
     if (requireAuth && !session?.user) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    if (!key || !contentType) {
+    if (!fileType) {
       return NextResponse.json({ 
-        message: 'Key and content type are required' 
+        message: 'File type is required' 
       }, { status: 400 });
     }
 
-    // Validate file type and size
-    const category = getFileCategory(contentType);
-    if (category === 'unknown') {
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/webm', 'video/quicktime',
+      'application/pdf', 'text/plain'
+    ];
+    
+    if (!allowedTypes.includes(fileType)) {
       return NextResponse.json({ 
         message: 'File type not supported' 
-      }, { status: 400 });
-    }
-
-    // Create a mock file object for validation
-    const mockFile = { type: contentType, size: fileSize } as File;
-    const validation = validateFile(mockFile);
-    
-    if (!validation.valid) {
-      return NextResponse.json({ 
-        message: validation.error 
       }, { status: 400 });
     }
 
@@ -58,17 +50,22 @@ export async function POST(request: Request) {
       }
     }
 
+    // Generate unique key
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = fileName ? fileName.split('.').pop() : fileType.split('/')[1];
+    const key = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
+
     // Generate presigned URL (expires in 5 minutes)
-    const uploadUrl = await generatePresignedUploadUrl(key, contentType, 300);
+    const uploadUrl = await generatePresignedUploadUrl(key, fileType, 300);
     
     // Generate the public URL for the uploaded file
-    const publicUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/${key}`;
+    const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_S3_REGION}.amazonaws.com/${key}`;
     
     return NextResponse.json({ 
       uploadUrl, 
       key,
-      publicUrl,
-      category
+      fileUrl
     });
 
   } catch (error) {
