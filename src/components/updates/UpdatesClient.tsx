@@ -269,20 +269,20 @@ export function UpdatesClient() {
   };
 
   return (
-    <div className="container mx-auto p-8 max-w-4xl">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-4xl">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold mb-4 flex items-center justify-center gap-2">
-          <MessageSquare className="h-8 w-8 text-blue-500" />
+      <div className="text-center mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4 flex items-center justify-center gap-2">
+          <MessageSquare className="h-6 w-6 md:h-8 md:w-8 text-blue-500" />
           Community Updates
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground px-4">
           Share your learning journey, insights, and achievements with the community
         </p>
       </div>
 
       {/* Create Post Form */}
-      <Card className="mb-8">
+      <Card className="mb-6 md:mb-8">
         <CardHeader>
           <CardTitle className="text-lg">Share an Update</CardTitle>
           <CardDescription>
@@ -320,10 +320,10 @@ export function UpdatesClient() {
             {newPostMedia.length > 0 && (
               <div className="space-y-2">
                 <Label>Uploaded Images</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {newPostMedia.map((url, index) => (
                     <div key={index} className="relative group">
-                      <div className="relative w-full h-24 rounded-lg overflow-hidden border">
+                      <div className="relative w-full h-20 sm:h-24 rounded-lg overflow-hidden border">
                         <Image
                           src={url}
                           alt={`Upload ${index + 1}`}
@@ -334,7 +334,7 @@ export function UpdatesClient() {
                           type="button"
                           variant="destructive"
                           size="sm"
-                          className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 h-5 w-5 sm:h-6 sm:w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
                           onClick={() => removeMedia(index)}
                         >
                           ×
@@ -379,7 +379,7 @@ export function UpdatesClient() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {data?.posts.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
@@ -398,30 +398,30 @@ export function UpdatesClient() {
               )}>
                 <CardContent className="pt-6">
                   {/* Post Header */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <Avatar className="h-10 w-10">
+                  <div className="flex items-start gap-3 sm:gap-4 mb-4">
+                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                       <AvatarImage src={post.author.avatar} alt={post.author.name} />
                       <AvatarFallback>
                         {post.author.name?.charAt(0)?.toUpperCase() || '?'}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold">{post.author.name}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm sm:text-base truncate">{post.author.name}</span>
                         {post.author.level && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
                             Level {post.author.level}
                           </Badge>
                         )}
                         {post.isPinned && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs flex-shrink-0">
                             <Pin className="h-3 w-3 mr-1" />
                             Pinned
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         {formatDate(post.createdAt)}
                       </div>
@@ -430,16 +430,16 @@ export function UpdatesClient() {
 
                   {/* Post Content */}
                   <div className="mb-4">
-                    <p className="text-gray-800 whitespace-pre-wrap">{post.text}</p>
+                    <p className="text-sm sm:text-base text-gray-800 whitespace-pre-wrap break-words">{post.text}</p>
 
                     {/* Media */}
                     {post.media && post.media.length > 0 && (
                       <div className="mt-4">
                         <div className={cn(
-                          "grid gap-2 rounded-lg overflow-hidden",
+                          "grid gap-1 sm:gap-2 rounded-lg overflow-hidden",
                           post.media.length === 1 && "grid-cols-1",
-                          post.media.length === 2 && "grid-cols-2",
-                          post.media.length === 3 && "grid-cols-2",
+                          post.media.length === 2 && "grid-cols-1 sm:grid-cols-2",
+                          post.media.length === 3 && "grid-cols-1 sm:grid-cols-2",
                           post.media.length === 4 && "grid-cols-2"
                         )}>
                           {post.media.map((url, index) => (
@@ -447,8 +447,8 @@ export function UpdatesClient() {
                               key={index}
                               className={cn(
                                 "relative cursor-pointer hover:opacity-90 transition-opacity",
-                                post.media.length === 3 && index === 0 && "col-span-2",
-                                "h-48 md:h-64"
+                                post.media.length === 3 && index === 0 && "sm:col-span-2",
+                                "h-32 sm:h-48 md:h-64"
                               )}
                               onClick={() => window.open(url, '_blank')}
                             >
@@ -466,7 +466,7 @@ export function UpdatesClient() {
 
                     {/* Tags */}
                     {post.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
+                      <div className="flex flex-wrap gap-1 sm:gap-2 mt-3">
                         {post.tags.map((tag, index) => (
                           <Badge key={index} variant="secondary" className="text-xs">
                             #{tag}
@@ -478,26 +478,31 @@ export function UpdatesClient() {
 
                   {/* Post Actions */}
                   <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleUpvote(post._id)}
                         className={cn(
-                          "flex items-center gap-2",
+                          "flex items-center gap-1 sm:gap-2 text-xs sm:text-sm",
                           post.isLiked && "text-red-500 hover:text-red-600"
                         )}
                       >
                         <Heart className={cn(
-                          "h-4 w-4",
+                          "h-3 w-3 sm:h-4 sm:w-4",
                           post.isLiked && "fill-current"
                         )} />
-                        {post.upvoteCount > 0 && post.upvoteCount}
+                        <span className="hidden sm:inline">
+                          {post.upvoteCount > 0 && post.upvoteCount}
+                        </span>
+                        <span className="sm:hidden">
+                          {post.upvoteCount > 0 && post.upvoteCount}
+                        </span>
                       </Button>
 
-                      <Button variant="ghost" size="sm" disabled>
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share
+                      <Button variant="ghost" size="sm" disabled className="text-xs sm:text-sm">
+                        <Share2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Share</span>
                       </Button>
                     </div>
 

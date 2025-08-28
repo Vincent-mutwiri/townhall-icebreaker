@@ -104,19 +104,20 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
-      <div className="container mx-auto p-8">
+      <div className="container mx-auto p-4 md:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+            <Button variant="outline" size="sm" asChild className="w-fit">
               <Link href="/games">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Games
+                <span className="hidden sm:inline">Back to Games</span>
+                <span className="sm:hidden">Back</span>
               </Link>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{gameTemplate?.title || 'Game Lobby'}</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">{gameTemplate?.title || 'Game Lobby'}</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 {gameStatus === 'scheduled' ? 'Waiting for players to join...' : 
                  gameStatus === 'live' ? 'Game in progress' : 'Game finished'}
               </p>
@@ -124,16 +125,16 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
           </div>
           
           {gameData.isHost && gameStatus === 'scheduled' && (
-            <Button onClick={handleStartGame} size="lg" className="bg-green-600 hover:bg-green-700">
+            <Button onClick={handleStartGame} size="lg" className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
               <Play className="mr-2 h-5 w-5" />
               Start Game
             </Button>
           )}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 lg:gap-8 lg:grid-cols-3">
           {/* Game Info */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Join Code Card */}
             <Card>
               <CardHeader>
@@ -146,17 +147,17 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
                   <div className="flex-1">
                     <Label htmlFor="joinCode">Join Code</Label>
                     <Input
                       id="joinCode"
                       value={gameData.joinCode}
                       readOnly
-                      className="text-center text-2xl font-mono tracking-wider font-bold"
+                      className="text-center text-xl sm:text-2xl font-mono tracking-wider font-bold"
                     />
                   </div>
-                  <Button onClick={copyJoinCode} variant="outline">
+                  <Button onClick={copyJoinCode} variant="outline" className="w-full sm:w-auto">
                     <Copy className="h-4 w-4 mr-2" />
                     Copy
                   </Button>
@@ -173,30 +174,30 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-lg sm:text-2xl font-bold text-blue-600">
                       {gameTemplate?.questions?.length || 0}
                     </div>
-                    <div className="text-sm text-muted-foreground">Questions</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Questions</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-lg sm:text-2xl font-bold text-green-600">
                       {gameTemplate?.rules?.basePoints || 100}
                     </div>
-                    <div className="text-sm text-muted-foreground">Base Points</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Base Points</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-orange-600">
+                    <div className="text-lg sm:text-2xl font-bold text-orange-600">
                       {gameTemplate?.rules?.timeLimit || 30}s
                     </div>
-                    <div className="text-sm text-muted-foreground">Time Limit</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Time Limit</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-lg sm:text-2xl font-bold text-purple-600">
                       {players.length}
                     </div>
-                    <div className="text-sm text-muted-foreground">Players</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Players</div>
                   </div>
                 </div>
 
@@ -226,34 +227,34 @@ export function GameLobby({ gameData, userId }: GameLobbyProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
                   {/* Host */}
-                  <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <Crown className="h-5 w-5 text-yellow-600" />
-                    <div className="flex-1">
-                      <div className="font-medium">{gameData.hostId?.name || 'Host'}</div>
+                  <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <Crown className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm sm:text-base truncate">{gameData.hostId?.name || 'Host'}</div>
                       <div className="text-xs text-muted-foreground">Game Host</div>
                     </div>
-                    <Badge variant="secondary">Host</Badge>
+                    <Badge variant="secondary" className="text-xs">Host</Badge>
                   </div>
 
                   {/* Players */}
                   {players.map((player: any, index: number) => (
-                    <div key={player.userId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">
+                    <div key={player.userId} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs sm:text-sm font-medium text-blue-600">
                           {player.name?.charAt(0)?.toUpperCase() || '?'}
                         </span>
                       </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{player.name}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm sm:text-base truncate">{player.name}</div>
                         <div className="text-xs text-muted-foreground">
                           Joined {new Date(player.joinedAt).toLocaleTimeString()}
                         </div>
                       </div>
                       {gameStatus !== 'scheduled' && (
-                        <div className="text-right">
-                          <div className="font-medium">{player.score || 0}</div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="font-medium text-sm">{player.score || 0}</div>
                           <div className="text-xs text-muted-foreground">points</div>
                         </div>
                       )}

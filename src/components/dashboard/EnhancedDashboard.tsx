@@ -126,26 +126,26 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <Avatar className="h-16 w-16">
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+          <Avatar className="h-12 w-12 sm:h-16 sm:w-16">
             <AvatarImage src={userData.avatar} alt={userData.name} />
-            <AvatarFallback className="text-xl bg-blue-100 text-blue-700">
+            <AvatarFallback className="text-lg sm:text-xl bg-blue-100 text-blue-700">
               {userData.name?.charAt(0)?.toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userData.name}!</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back, {userData.name}!</h1>
+            <p className="text-sm sm:text-base text-gray-600">
               Ready to continue your learning journey?
             </p>
           </div>
         </div>
       </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 lg:gap-8 lg:grid-cols-3">
           {/* Left Column - Stats and Progress */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Level and XP Card */}
             <Card>
               <CardHeader>
@@ -181,50 +181,50 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
             </Card>
 
             {/* Stats Overview */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-yellow-500" />
+                <CardContent className="p-3 md:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{userData.points || 0}</div>
-                      <div className="text-sm text-gray-600">Total Points</div>
+                      <div className="text-lg sm:text-2xl font-bold text-gray-900">{userData.points || 0}</div>
+                      <div className="text-xs sm:text-sm text-gray-600">Total Points</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-blue-500" />
+                <CardContent className="p-3 md:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{userData.stats?.coursesCompleted || 0}</div>
-                      <div className="text-sm text-gray-600">Courses</div>
+                      <div className="text-lg sm:text-2xl font-bold text-gray-900">{userData.stats?.coursesCompleted || 0}</div>
+                      <div className="text-xs sm:text-sm text-gray-600">Courses</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2">
-                    <Gamepad2 className="h-5 w-5 text-green-500" />
+                <CardContent className="p-3 md:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <Gamepad2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{userData.stats?.gamesPlayed || 0}</div>
-                      <div className="text-sm text-gray-600">Games</div>
+                      <div className="text-lg sm:text-2xl font-bold text-gray-900">{userData.stats?.gamesPlayed || 0}</div>
+                      <div className="text-xs sm:text-sm text-gray-600">Games</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-purple-500" />
+                <CardContent className="p-3 md:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <Award className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
                     <div>
-                      <div className="text-2xl font-bold text-gray-900">{userData.badges?.length || 0}</div>
-                      <div className="text-sm text-gray-600">Badges</div>
+                      <div className="text-lg sm:text-2xl font-bold text-gray-900">{userData.badges?.length || 0}</div>
+                      <div className="text-xs sm:text-sm text-gray-600">Badges</div>
                     </div>
                   </div>
                 </CardContent>
@@ -260,16 +260,16 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
                     {activities.slice(0, 5).map((activity) => {
                       const IconComponent = getActivityIcon(activity.icon);
                       return (
-                        <div key={activity._id} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50">
-                          <div className={cn("p-2 rounded-full bg-white", getColorClass(activity.color))}>
+                        <div key={activity._id} className="flex items-start sm:items-center gap-3 sm:gap-4 p-3 rounded-lg bg-gray-50">
+                          <div className={cn("p-2 rounded-full bg-white flex-shrink-0", getColorClass(activity.color))}>
                             <IconComponent className="h-4 w-4" />
                           </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">{activity.title}</div>
-                            <div className="text-sm text-gray-600">{activity.description}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 text-sm sm:text-base">{activity.title}</div>
+                            <div className="text-xs sm:text-sm text-gray-600 truncate">{activity.description}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-green-600">+{activity.points}</div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-semibold text-green-600 text-sm">+{activity.points}</div>
                             <div className="text-xs text-gray-500">
                               {new Date(activity.date).toLocaleDateString()}
                             </div>
@@ -291,7 +291,7 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
           </div>
 
           {/* Right Column - Badges and Quick Actions */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Earned Badges */}
             <Card>
               <CardHeader>
@@ -305,16 +305,16 @@ export function EnhancedDashboard({ userData, session }: EnhancedDashboardProps)
               </CardHeader>
               <CardContent>
                 {userData.badges && userData.badges.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                     {userData.badges.map((badge: any) => {
                       const IconComponent = getBadgeIcon(badge.icon);
                       return (
                         <div
                           key={badge._id}
-                          className="flex flex-col items-center p-3 rounded-lg bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200"
+                          className="flex flex-col items-center p-2 sm:p-3 rounded-lg bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200"
                         >
-                          <IconComponent className="h-8 w-8 text-yellow-600 mb-2" />
-                          <div className="text-xs font-medium text-center">{badge.name}</div>
+                          <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600 mb-1 sm:mb-2" />
+                          <div className="text-xs font-medium text-center leading-tight">{badge.name}</div>
                         </div>
                       );
                     })}

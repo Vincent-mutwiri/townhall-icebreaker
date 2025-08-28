@@ -129,17 +129,18 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
   return (
     <>
       <Toaster richColors />
-      <div className="container mx-auto p-4 md:p-8">
+      <div className="container mx-auto p-4 md:p-6 lg:p-8">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="sm" asChild>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+          <Button variant="outline" size="sm" asChild className="w-fit">
             <Link href="/courses/manage">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Courses
+              <span className="hidden sm:inline">Back to Courses</span>
+              <span className="sm:hidden">Back</span>
             </Link>
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl sm:text-2xl font-bold">
               {course._id ? "Edit Course" : "Create New Course"}
             </h1>
           </div>
@@ -148,9 +149,9 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
           </Badge>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Course Details */}
             <Card>
               <CardHeader>
@@ -395,7 +396,7 @@ export function CourseEditor({ initialCourse }: { initialCourse: CourseState | n
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Actions</CardTitle>
