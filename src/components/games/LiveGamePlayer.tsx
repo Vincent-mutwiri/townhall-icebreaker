@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
+import { LiveLeaderboard } from "./LiveLeaderboard";
 
 interface LiveGamePlayerProps {
   gameData: any;
@@ -41,6 +42,7 @@ export function LiveGamePlayer({ gameData, userId }: LiveGamePlayerProps) {
   const [players, setPlayers] = useState(gameData.players || []);
   const [roundResults, setRoundResults] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
 
@@ -71,6 +73,11 @@ export function LiveGamePlayer({ gameData, userId }: LiveGamePlayerProps) {
 
     socket.on('game:leaderboard', (data) => {
       setLeaderboard(data.leaderboard);
+      setGameState('leaderboard');
+    });
+
+    socket.on('game:leaderboard-update', (data) => {
+      setLeaderboardData(data);
       setGameState('leaderboard');
     });
 
@@ -111,6 +118,7 @@ export function LiveGamePlayer({ gameData, userId }: LiveGamePlayerProps) {
       socket.off('game:question');
       socket.off('game:round-results');
       socket.off('game:leaderboard');
+      socket.off('game:leaderboard-update');
       socket.off('game:finished');
       socket.off('game:next-question');
       clearInterval(timer);
@@ -356,6 +364,18 @@ export function LiveGamePlayer({ gameData, userId }: LiveGamePlayerProps) {
           )}
         </div>
       </div>
+    );
+  }
+
+  if (gameState === 'leaderboard') {
+    return (
+      <LiveLeaderboard
+        leaderboardData={leaderboardData}
+        currentQuestionIndex={currentQuestionIndex}
+        totalQuestions={totalQuestions}
+        isHost={gameData.isHost}
+        onNextQuestion={handleNextRound}
+      />
     );
   }
 

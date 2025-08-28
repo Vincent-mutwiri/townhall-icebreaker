@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import connectToDatabase from "@/lib/database";
 import { HostedGame } from "@/models/HostedGame";
-import { LiveGamePlayer } from "@/components/games/LiveGamePlayer";
+import { LiveGamePlayer } from "@/components/games/LiveGamePlayerMinimal";
 import { notFound } from 'next/navigation';
 
 async function getLiveGameData(joinCode: string, userId: string) {
