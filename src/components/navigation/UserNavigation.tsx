@@ -202,7 +202,7 @@ export function UserNavigation() {
       </div>
 
       {/* Mobile Header */}
-      <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-white px-4 py-4 shadow-sm sm:px-6 lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center gap-x-4 bg-white px-4 py-3 shadow-sm sm:px-6 lg:hidden">
         <Button
           variant="ghost"
           size="sm"
@@ -220,6 +220,20 @@ export function UserNavigation() {
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Edtech Guardian Hub
             </span>
+          </Link>
+        </div>
+        
+        {/* Mobile Quick Actions */}
+        <div className="flex items-center space-x-2">
+          <Link href="/games">
+            <Button variant="ghost" size="sm" className="p-2">
+              <Gamepad2 className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/courses">
+            <Button variant="ghost" size="sm" className="p-2">
+              <BookOpen className="h-4 w-4" />
+            </Button>
           </Link>
         </div>
         

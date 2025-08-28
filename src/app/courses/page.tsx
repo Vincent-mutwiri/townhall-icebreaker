@@ -36,7 +36,20 @@ export default async function CoursesPage() {
           <h2 className="text-2xl font-semibold mb-6">Available Courses</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {publishedCourses.map((course: any) => (
-              <Card key={course._id} className="hover:shadow-lg transition-shadow">
+              <Card key={course._id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                <div className="aspect-video w-full overflow-hidden bg-gray-100">
+                  {course.cover ? (
+                    <img 
+                      src={course.cover} 
+                      alt={course.title}
+                      className="w-full h-full object-cover"
+
+                    />
+                  ) : null}
+                  <div className={`w-full h-full flex items-center justify-center ${course.cover ? 'hidden' : 'flex'}`}>
+                    <BookOpen className="h-12 w-12 text-gray-400" />
+                  </div>
+                </div>
                 <CardHeader>
                   <CardTitle className="line-clamp-2">{course.title}</CardTitle>
                   <div className="flex items-center gap-2">

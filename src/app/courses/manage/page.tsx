@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UserLayout } from "@/components/layouts/UserLayout";
 import connectToDatabase from "@/lib/database";
 import { Course } from "@/models/Course";
 import { PlusCircle, BookOpen, Edit, Trash2 } from "lucide-react";
@@ -25,7 +26,8 @@ export default async function ManageCoursesPage() {
   const myCourses = await getMyCourses((session.user as any).id);
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
+    <UserLayout>
+      <div className="container mx-auto p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Manage Your Courses</h1>
@@ -56,7 +58,20 @@ export default async function ManageCoursesPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {myCourses.map((course: any) => (
-            <Card key={course._id} className="hover:shadow-lg transition-shadow">
+            <Card key={course._id} className="hover:shadow-lg transition-shadow overflow-hidden">
+              <div className="aspect-video w-full overflow-hidden bg-gray-100">
+                {course.cover ? (
+                  <img 
+                    src={course.cover} 
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+
+                  />
+                ) : null}
+                <div className={`w-full h-full flex items-center justify-center ${course.cover ? 'hidden' : 'flex'}`}>
+                  <BookOpen className="h-12 w-12 text-gray-400" />
+                </div>
+              </div>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -95,6 +110,7 @@ export default async function ManageCoursesPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </UserLayout>
   );
 }
